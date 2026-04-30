@@ -1,0 +1,270 @@
+/* Mobile devices (up to 480px) */
+@media (max-width: 480px) {
+  :root {
+    --font-size-base: 14px;
+    --space-lg: 16px;
+  }
+
+  .container {
+    padding: var(--space-sm);
+  }
+
+  h1 {
+    font-size: var(--font-size-2xl);
+  }
+
+  h2 {
+    font-size: var(--font-size-xl);
+  }
+
+  .btn {
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--font-size-sm);
+  }
+
+  .card {
+    padding: var(--space-md);
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .grades-container {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-bars {
+    height: 200px;
+  }
+
+  .assignment-card-header {
+    flex-direction: column;
+  }
+
+  .announcement-card-header {
+    flex-direction: column;
+  }
+
+  .page-container {
+    padding: var(--space-sm);
+  }
+}
+
+/* Tablets (481px to 768px) */
+@media (max-width: 768px) {
+  :root {
+    --space-xl: 24px;
+    --space-2xl: 32px;
+  }
+
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 250px;
+    height: 100vh;
+    z-index: 999;
+    transform: translateX(-100%);
+    transition: transform var(--transition-base);
+  }
+
+  .sidebar.mobile-active {
+    transform: translateX(0);
+  }
+
+  .main-content {
+    width: 100%;
+  }
+
+  .navbar {
+    flex-wrap: wrap;
+  }
+
+  .navbar-menu {
+    display: none;
+  }
+
+  .navbar-toggle {
+    display: block;
+  }
+
+  .navbar-user-info {
+    display: none;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grades-container {
+    grid-template-columns: 1fr;
+  }
+
+  .assignment-card,
+  .announcement-card {
+    padding: var(--space-md);
+  }
+
+  .profile-container {
+    grid-template-columns: 1fr;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .section-header-action {
+    width: 100%;
+    margin-top: var(--space-md);
+  }
+
+  .section-header-action .btn {
+    width: 100%;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions .btn {
+    width: 100%;
+  }
+
+  .toast-container {
+    left: var(--space-sm);
+    right: var(--space-sm);
+    top: var(--space-sm);
+  }
+
+  .toast {
+    min-width: auto;
+  }
+}
+
+/* Small devices (769px to 1024px) */
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .profile-container {
+    grid-template-columns: 1fr;
+  }
+
+  .grades-container {
+    grid-template-columns: 1fr;
+  }
+
+  .modal {
+    max-width: 95%;
+  }
+}
+
+/* Large devices (1025px to 1440px) */
+@media (min-width: 1025px) and (max-width: 1440px) {
+  .page-container {
+    padding: var(--space-lg);
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Extra large devices (above 1440px) */
+@media (min-width: 1441px) {
+  .page-container {
+    max-width: 1400px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Print styles */
+@media print {
+  .navbar,
+  .sidebar,
+  .page-header,
+  .btn,
+  .modal-overlay {
+    display: none !important;
+  }
+
+  .main-content {
+    width: 100%;
+    height: auto;
+  }
+
+  .content {
+    overflow: visible;
+    background-color: white;
+  }
+
+  .card,
+  .assignment-card,
+  .announcement-card {
+    page-break-inside: avoid;
+  }
+
+  body {
+    background-color: white;
+  }
+}
+
+/* Landscape orientation (tablets) */
+@media (max-height: 600px) and (orientation: landscape) {
+  .sidebar {
+    overflow-y: auto;
+  }
+
+  .page-header {
+    padding: var(--space-md);
+  }
+
+  .welcome-banner {
+    padding: var(--space-md);
+  }
+}
+
+/* High DPI displays (Retina) */
+@media (-webkit-min-device-pixel-ratio: 2),
+       (min-resolution: 192dpi) {
+  /* Images and text should be slightly sharper */
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Dark mode (if user prefers) */
+@media (prefers-color-scheme: dark) {
+  /* Could implement dark mode styles here if needed */
+}
+
+/* Low contrast mode */
+@media (prefers-contrast: more) {
+  --text-primary: #000;
+  --border: #333;
+  --primary: #003a99;
+}
+
+/* Low contrast mode - less contrast */
+@media (prefers-contrast: less) {
+  --text-secondary: #999;
+  --text-muted: #bbb;
+}
