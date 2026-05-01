@@ -11,12 +11,21 @@ configDotenv();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
-app.use(
-  cors({
-    origin: "https://class-sites.netlify.app",
-    credentials: true, // allow cookies/auth headers if needed
-  })
-);
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://class-sites.netlify.app"
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true
+}));
 app.use(express.json()); // for parsing application/json
 app.use(express.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
 // ── Routes ──────────────────────────────────────────────────────────────────
