@@ -1,5 +1,5 @@
 import { useState } from "react";
-import Toast from "../../components/Toast";
+import Toast from "../../components/Toast.jsx";
 import styles from "../../css/Sections.module.css";
 import { postAnnouncement } from "../api/teacherApi";
 

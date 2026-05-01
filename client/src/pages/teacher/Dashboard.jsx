@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
 import { useNavigate }         from "react-router-dom";
 
-import  {Sidebar}              from "../../components/Sidebar";
-import Header               from "../../components/Header";
-import StatCards            from "../../components/Statcard";
-import StudentsSection      from "./Students";
-import AssignmentsSection   from "./Assignments";
-import ExamsSection         from "./Exams";
-import GradesSection        from "./Grades";
-import AnnouncementsSection from "./Announcements";
+import  {Sidebar}              from "../../components/Sidebar.jsx";
+import Header               from "../../components/Header.jsx";
+import StatCards            from "../../components/Statcard.jsx";
+import StudentsSection      from "./Students.jsx";
+import AssignmentsSection   from "./Assignments.jsx";
+import ExamsSection         from "./Exams.jsx";
+import GradesSection        from "./Grades.jsx";
+import AnnouncementsSection from "./Announcements.jsx";
 
-import { useTeacherData }   from "./UseteacherData";
+import { useTeacherData }   from "./UseteacherData.js";
 import styles from  "../../css/Teacherdashboard.module.css";
 
 const SECTIONS = [

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import Modal from "../../components/Modal";
-import Toast from "../../components/Toast";
+import Modal from "../../components/Modal.jsx";
+import Toast from "../../components/Toast.jsx";
 import styles from "../../css/Sections.module.css";
 import { createAssignment, deleteAssignment, updateAssignment } from "../api/teacherApi";
 

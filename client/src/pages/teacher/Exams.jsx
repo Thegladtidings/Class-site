@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import Modal from "../../components/Modal";
-import Toast from "../../components/Toast";
+import Modal from "../../components/Modal.jsx";
+import Toast from "../../components/Toast.jsx";
 import styles from "../../css/Sections.module.css";
 import { createExam, deleteExam } from "../api/teacherApi";
 
