@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Modal from "../../components/Modal.jsx";
 import Toast from "../../components/Toast.jsx";
 import styles from "../../css/Sections.module.css";
-import { createExam, deleteExam } from "../api/teacherApi";
+import { createExam, deleteExam } from "../api/teacherApi.js";
 
 const EMPTY = {
   subject: "Mathematics",

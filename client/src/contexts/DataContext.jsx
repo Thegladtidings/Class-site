@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useRef } from 'react';
-import * as mockData from '../utils/mockData';
+import * as mockData from '../utils/mockData.js';
 
 export const DataContext = createContext();
 

@@ -4,8 +4,11 @@ import axios from 'axios';
 import '../css/login.css';
 
 
-const API_BASE = process.env.VITE_API_URL || 'http://localhost:4000/api';
+const API_BASE = import.meta.env.VITE_API_URL;
 
+if (!API_BASE) {
+  throw new Error("VITE_API_URL is not defined");
+}
 const LOGIN_URLS = {
   student: `${API_BASE}/students/login`,
   teacher: `${API_BASE}/teachers/login`,

@@ -10,7 +10,7 @@ import ExamsSection         from "./Exams.jsx";
 import GradesSection        from "./Grades.jsx";
 import AnnouncementsSection from "./Announcements.jsx";
 
-import { useTeacherData }   from "./UseteacherData.js";
+import { useTeacherData }   from "./Useteacherdata.js";
 import styles from  "../../css/Teacherdashboard.module.css";
 
 const SECTIONS = [
