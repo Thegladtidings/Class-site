@@ -10,8 +10,8 @@ if (!API_BASE) {
   throw new Error("VITE_API_URL is not defined");
 }
 const LOGIN_URLS = {
-  student: `${API_BASE}/students/login`,
-  teacher: `${API_BASE}/teachers/login`,
+  student: `${API_BASE}/api/students/login`,
+  teacher: `${API_BASE}/api/teachers/login`,
 };
 
 export default function LoginPage() {
