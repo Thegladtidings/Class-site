@@ -1,4 +1,4 @@
-import axiosInstance from "./AxiosInstance.js";
+import axiosInstance from "./Axiosinstance.js";
 
 export const getProfile      = ()       => axiosInstance.get("/api/teachers/profile");
 export const getStudents     = ()       => axiosInstance.get("/api/teachers/students");

@@ -129,7 +129,7 @@ import {
   getExams,
   getGrades,
   getAnnouncements,
-} from "../api/teacherApi";
+} from "../api/teacherApi.js";
 
 /* ───────────────────────────────
    SAFE FETCH HOOK (NO MOCKS)
