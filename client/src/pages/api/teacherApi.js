@@ -6,6 +6,7 @@ export const getAssignments  = ()       => axiosInstance.get("/api/assignments/m
 export const getExams        = ()       => axiosInstance.get("/api/exams/teacher/my");
 export const getGrades       = ()       => axiosInstance.get("/api/teacher/grades");
 export const postAnnouncement = (data)  => axiosInstance.post("/api/teacher/announcements", data);
+export const deleteAnnouncement = (id) => axiosInstance.delete(`/api/teacher/announcements/${id}`);
 export const getAnnouncements = ()      => axiosInstance.get("/api/teacher/announcements");
 export const createAssignment = (data)  => axiosInstance.post("/api/assignments/", data);
 export const updateAssignment = (id, d) => axiosInstance.put(`/api/teacher/assignments/${id}`, d);
