@@ -1,88 +1,70 @@
 import { useState, useEffect } from "react";
 import { useNavigate }         from "react-router-dom";
 
-import  {Sidebar}              from "../../components/Sidebar.jsx";
-import Header               from "../../components/Header.jsx";
-import StatCards            from "../../components/Statcard.jsx";
-import StudentsSection      from "./Students.jsx";
-import AssignmentsSection   from "./Assignments.jsx";
-import ExamsSection         from "./Exams.jsx";
-import GradesSection        from "./Grades.jsx";
-import AnnouncementsSection from "./Announcements.jsx";
+import { Sidebar }              from "../../components/Sidebar.jsx";
+import Header                   from "../../components/Header.jsx";
+import StatCards                from "../../components/Statcard.jsx";
+import StudentsSection          from "./Students.jsx";
+import AssignmentsSection       from "./Assignments.jsx";
+import ExamsSection             from "./Exams.jsx";
+import GradesSection            from "./Grades.jsx";
+import AnnouncementsSection     from "./Announcements.jsx";
 
-import { useTeacherData }   from "./Useteacherdata.js";
-import styles from  "../../css/Teacherdashboard.module.css";
-
-const SECTIONS = [
-  "dashboard",
-  "students",
-  "assignments",
-  "exams",
-  "grades",
-  "announcements",
-  "settings",
-];
+import { useTeacherData }       from "./Useteacherdata.js";
+import styles                   from "../../css/Teacherdashboard.module.css";
 
 export default function TeacherDashboard() {
   const navigate = useNavigate();
   const [active, setActive]       = useState("dashboard");
   const [sidebarOpen, setSidebar] = useState(false);
 
-  // Guard: redirect if no token
   useEffect(() => {
     if (!localStorage.getItem("token")) navigate("/login");
   }, [navigate]);
 
-  const { profile, students, assignments, exams, grades, announcements, stats } =
-    useTeacherData();
+  const {
+    profile,
+    students,
+    assignments,
+    exams,
+    grades,
+    announcements,
+    studentList,
+    assignmentList,
+    examList,
+    gradeList,
+    announcementList,
+    stats,
+  } = useTeacherData();
 
   function renderContent() {
     switch (active) {
       case "students":
-        return (
-          <StudentsSection
-            students={students.data}
-            loading={students.loading}
-          />
-        );
+        return <StudentsSection students={studentList} loading={students.loading} />;
+
       case "assignments":
-        return (
-          <AssignmentsSection
-            assignments={assignments.data}
-            loading={assignments.loading}
-          />
-        );
+        return <AssignmentsSection assignments={assignmentList} loading={assignments.loading} />;
+
       case "exams":
-        return (
-          <ExamsSection
-            exams={exams.data}
-            loading={exams.loading}
-          />
-        );
+        return <ExamsSection exams={examList} loading={exams.loading} />;
+
       case "grades":
-        return (
-          <GradesSection
-            grades={grades.data}
-            loading={grades.loading}
-          />
-        );
+        return <GradesSection grades={gradeList} loading={grades.loading} />;
+
       case "announcements":
-        return (
-          <AnnouncementsSection
-            announcements={announcements.data}
-            loading={announcements.loading}
-          />
-        );
+        return <AnnouncementsSection announcements={announcementList} loading={announcements.loading} />;
+
       case "settings":
         return <SettingsPlaceholder />;
+
       default:
         return (
           <DashboardHome
             stats={stats}
             loading={students.loading}
-            students={students.data}
-            assignments={assignments.data}
-            announcements={announcements.data}
+            students={studentList}
+            assignments={assignmentList}
+            announcements={announcementList}
             onNav={setActive}
           />
         );
@@ -97,7 +79,6 @@ export default function TeacherDashboard() {
         open={sidebarOpen}
         onClose={() => setSidebar(false)}
       />
-
       <div className={styles.mainArea}>
         <Header
           profile={profile.data}
@@ -111,20 +92,20 @@ export default function TeacherDashboard() {
   );
 }
 
-/* ── Dashboard Home (overview) ── */
+/* ── Dashboard Home ── */
 function DashboardHome({ stats, loading, students, assignments, announcements, onNav }) {
-  const topStudents = [...(students || [])]
+  const topStudents = [...students]
     .sort((a, b) => b.average - a.average)
     .slice(0, 5);
 
   const recentActivity = [
-    ...(assignments || []).map((a) => ({
+    ...assignments.map((a) => ({
       icon: "📋",
-      text: `Assignment "${a.title}" is ${a.status.toLowerCase()}`,
+      text: `Assignment "${a.title}" is ${a.status?.toLowerCase()}`,
       time: a.deadline,
       type: "assignment",
     })),
-    ...(announcements || []).map((n) => ({
+    ...announcements.map((n) => ({
       icon: "📢",
       text: n.title,
       time: n.createdAt,
@@ -149,19 +130,26 @@ function DashboardHome({ stats, loading, students, assignments, announcements, o
           </div>
           {loading ? (
             <div className={styles.skeletonBlock} />
+          ) : topStudents.length === 0 ? (
+            <p style={{ color: "#94a3b8", padding: "16px 0" }}>No student data yet.</p>
           ) : (
             <div className={styles.topList}>
               {topStudents.map((s, i) => (
                 <div key={s._id} className={styles.topRow}>
                   <div className={styles.topRank}>#{i + 1}</div>
-                  <div className={styles.topAvatar}>{s.name[0]}</div>
+                  <div className={styles.topAvatar}>{s.name?.[0]}</div>
                   <div className={styles.topInfo}>
                     <p className={styles.topName}>{s.name}</p>
                     <p className={styles.topClass}>{s.class}</p>
                   </div>
                   <div
                     className={styles.topScore}
-                    style={{ color: s.average >= 80 ? "#10b981" : s.average >= 65 ? "#1a6ef5" : "#f59e0b" }}
+                    style={{
+                      color:
+                        s.average >= 80 ? "#10b981"
+                        : s.average >= 65 ? "#1a6ef5"
+                        : "#f59e0b",
+                    }}
                   >
                     {s.average}%
                   </div>
@@ -177,19 +165,25 @@ function DashboardHome({ stats, loading, students, assignments, announcements, o
             <h3 className={styles.dashCardTitle}>🕐 Recent Activity</h3>
           </div>
           <div className={styles.activityList}>
-            {recentActivity.map((item, i) => (
-              <div key={i} className={styles.activityItem}>
-                <div className={styles.activityIcon}>{item.icon}</div>
-                <div className={styles.activityInfo}>
-                  <p className={styles.activityText}>{item.text}</p>
-                  <p className={styles.activityTime}>
-                    {new Date(item.time).toLocaleDateString("en-US", {
-                      month: "short", day: "numeric", year: "numeric",
-                    })}
-                  </p>
+            {recentActivity.length === 0 ? (
+              <p style={{ color: "#94a3b8", padding: "16px 0" }}>No recent activity.</p>
+            ) : (
+              recentActivity.map((item, i) => (
+                <div key={i} className={styles.activityItem}>
+                  <div className={styles.activityIcon}>{item.icon}</div>
+                  <div className={styles.activityInfo}>
+                    <p className={styles.activityText}>{item.text}</p>
+                    <p className={styles.activityTime}>
+                      {item.time
+                        ? new Date(item.time).toLocaleDateString("en-US", {
+                            month: "short", day: "numeric", year: "numeric",
+                          })
+                        : "—"}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
@@ -213,7 +207,7 @@ function DashboardHome({ stats, loading, students, assignments, announcements, o
           </div>
         </div>
 
-        {/* Class performance bar */}
+        {/* Class performance */}
         <div className={styles.dashCard}>
           <div className={styles.dashCardHead}>
             <h3 className={styles.dashCardTitle}>📊 Class Performance</h3>
@@ -223,9 +217,11 @@ function DashboardHome({ stats, loading, students, assignments, announcements, o
           </div>
           {loading ? (
             <div className={styles.skeletonBlock} />
+          ) : students.length === 0 ? (
+            <p style={{ color: "#94a3b8", padding: "16px 0" }}>No student data yet.</p>
           ) : (
             <div className={styles.perfList}>
-              {(students || []).map((s) => (
+              {students.map((s) => (
                 <div key={s._id} className={styles.perfRow}>
                   <span className={styles.perfName}>{s.name}</span>
                   <div className={styles.perfBar}>

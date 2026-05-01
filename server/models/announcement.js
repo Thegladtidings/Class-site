@@ -1,19 +1,13 @@
+// models/announcement.js
 import mongoose from "mongoose";
-const { Schema } = mongoose;
 
 const announcementSchema = new mongoose.Schema({
-  type: {
-    type: String,
-    enum: ["best_student", "notice", "result", "event"],
-    required: true,
-  },
-  title:     { type: String, required: true },
-  body:      { type: String },
-  student:   { type: Schema.Types.ObjectId, ref: "Student", default: null },
-  className: { type: String },
-  isPinned:  { type: Boolean, default: false },
-  expiresAt: { type: Date },
+  title:        { type: String, required: true },
+  message:      { type: String, required: true },
+  type:         { type: String, enum: ["notice", "best_student", "result", "event"], default: "notice" },
+  studentName:  { type: String, default: null },
+  studentPhoto: { type: String, default: null }, // URL string
+  postedBy:     { type: mongoose.Schema.Types.ObjectId, ref: "Teacher", required: true },
 }, { timestamps: true });
 
-const Announcement = mongoose.model("Announcement", announcementSchema);
-export default Announcement;
+export default mongoose.model("Announcement", announcementSchema);
