@@ -28,7 +28,7 @@ export const registerTeacher = async (req, res) => {
 // LOGIN TEACHER
 export const teacherLogin = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password} = req.body;
 
     const teacher = await Teacher.findOne({ email });
     if (!teacher) return res.status(401).json({ message: "Invalid email or password" });

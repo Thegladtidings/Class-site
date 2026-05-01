@@ -2,14 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Navbar } from '../../components/Navbar';
 import { Sidebar } from '../../components/Sidebar';
-import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import '../../css/exam.css';
 
 export default function StudentExamActive() {
   const { examId } = useParams();
   const navigate = useNavigate();
-  const { state: authState } = useAuth();
   const { getExamById, getExamQuestions, saveExamAnswer, submitExam, createExamSession } = useData();
   
   const [exam, setExam] = useState(null);
@@ -30,7 +28,9 @@ export default function StudentExamActive() {
 
         if (!sessionData) {
           // Create new session if doesn't exist
-          examSession = await createExamSession(examId, authState.user.id);
+          const userId = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).id : null;
+          examSession = await createExamSession(examId, userId);
+          
           sessionStorage.setItem('active_exam_session', JSON.stringify({
             sessionId: examSession.id,
             examId,

@@ -16,12 +16,12 @@ import {
 const router = Router();
 
 // ── Teacher routes ──────────────────────────────────────────────────────────
-router.post("/",                        protect, authorise("teacher"), createExam);
-router.get("/my",                       protect, authorise("teacher"), getTeacherExams);
-router.patch("/:examId/publish",        protect, authorise("teacher"), togglePublishExam);
-router.patch("/:examId",                protect, authorise("teacher"), updateExam);
-router.delete("/:examId",              protect, authorise("teacher"), deleteExam);
-router.get("/:examId/results",          protect, authorise("teacher"), getExamResults);
+router.post("/teacher",                        protect, authorise("teacher"), createExam);
+router.get("/teacher/my",                       protect, authorise("teacher"), getTeacherExams);
+router.patch("/teacher/:examId/publish",        protect, authorise("teacher"), togglePublishExam);
+router.patch("/teacher/:examId",                protect, authorise("teacher"), updateExam);
+router.delete("/teacher/:examId",              protect, authorise("teacher"), deleteExam);
+router.get("/teacher/:examId/results",          protect, authorise("teacher"), getExamResults);
 
 // ── Student routes ──────────────────────────────────────────────────────────
 router.get("/",                         protect, authorise("student"), getAvailableExams);

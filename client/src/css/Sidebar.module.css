@@ -1,0 +1,120 @@
+.sidebar {
+  width: 240px;
+  height: 100vh;
+  background: #0d1b2a;
+  border-right: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 200;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.brand {
+  padding: 24px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.brandMark {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.brandIcon {
+  width: 40px; height: 40px;
+  background: linear-gradient(135deg, #1a6ef5, #0ea5e9);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.brandName {
+  font-family: 'Sora', 'Outfit', sans-serif;
+  font-size: 16px; font-weight: 700;
+  color: #f0f4ff; letter-spacing: -0.3px;
+}
+.brandSub {
+  font-size: 10px; color: #4a6080;
+  text-transform: uppercase; letter-spacing: 1.2px; margin-top: 1px;
+}
+
+.nav {
+  flex: 1;
+  padding: 16px 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.navLabel {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 1.2px; text-transform: uppercase;
+  color: #2d4060; padding: 8px 8px 10px; margin: 0;
+}
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  color: #5a7090;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  position: relative;
+}
+.navItem:hover {
+  background: rgba(26, 110, 245, 0.08);
+  color: #c8d8f0;
+}
+.navActive {
+  background: linear-gradient(135deg, rgba(26,110,245,0.18), rgba(14,165,233,0.1)) !important;
+  color: #60a5fa !important;
+  font-weight: 600;
+}
+.navIcon { font-size: 16px; width: 20px; flex-shrink: 0; }
+.activeDot {
+  width: 6px; height: 6px;
+  background: #1a6ef5;
+  border-radius: 50%;
+  margin-left: auto;
+}
+
+.sidebarBottom {
+  padding: 16px 12px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.logoutBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.logoutBtn:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* Overlay for mobile */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 199;
+}
+
+@media (max-width: 900px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+}

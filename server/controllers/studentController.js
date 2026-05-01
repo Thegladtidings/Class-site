@@ -7,6 +7,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
 // LOGIN
 export const studentLogin = async (req, res) => {
   try {
+    console.log("Login request body:", req.body); // Debug log
     const { email, password } = req.body;
 
     const student = await Student.findOne({ email });

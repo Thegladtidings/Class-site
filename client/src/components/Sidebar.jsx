@@ -1,66 +1,61 @@
-import React, { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from "react-router-dom";
+import styles from "../css/Sidebar.module.css";
 
-export const Sidebar = () => {
-  const { state } = useAuth();
+const NAV = [
+  { key: "dashboard",     label: "Dashboard",     icon: "⊞" },
+  { key: "students",      label: "Students",       icon: "👥" },
+  { key: "assignments",   label: "Assignments",    icon: "📋" },
+  { key: "exams",         label: "Exams",          icon: "📝" },
+  { key: "grades",        label: "Grades",         icon: "📊" },
+  { key: "announcements", label: "Announcements",  icon: "📢" },
+  { key: "settings",      label: "Settings",       icon: "⚙" },
+];
+
+export const Sidebar = ({ active, onNav, open, onClose }) => {
   const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const isStudent = state.role === 'student';
-
-  const studentLinks = [
-    { label: 'Dashboard', path: '/student/dashboard', icon: '📊' },
-    { label: 'My Grades', path: '/student/grades', icon: '📈' },
-    { label: 'Assignments', path: '/student/assignments', icon: '📝' },
-    { label: 'Announcements', path: '/student/announcements', icon: '📢' },
-    { label: 'Exams', path: '/student/exams', icon: '📋' },
-    { label: 'Profile', path: '/student/profile', icon: '👤' },
-  ];
-
-  const teacherLinks = [
-    { label: 'Dashboard', path: '/teacher/dashboard', icon: '📊' },
-    { label: 'Students', path: '/teacher/students', icon: '👨‍🎓' },
-    { label: 'Grade Management', path: '/teacher/grades', icon: '📊' },
-    { label: 'Assignments', path: '/teacher/assignments', icon: '📝' },
-    { label: 'Announcements', path: '/teacher/announcements', icon: '📢' },
-    { label: 'Exams', path: '/teacher/exams', icon: '📋' },
-  ];
-
-  const links = isStudent ? studentLinks : teacherLinks;
-
-  const handleNavClick = (path) => {
-    navigate(path);
-    setSidebarOpen(false);
-  };
+  function handleLogout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login");
+  }
 
   return (
     <>
-      <aside className={`sidebar ${sidebarOpen ? 'mobile-active' : ''}`}>
-        <div className="sidebar-header">
-          <h2 className="sidebar-title">JSS 2 Portal</h2>
+      {open && <div className={styles.overlay} onClick={onClose} />}
+      <aside className={`${styles.sidebar} ${open ? styles.open : ""}`}>
+        <div className={styles.brand}>
+          <div className={styles.brandMark}>
+            <span className={styles.brandIcon}>🎓</span>
+            <div>
+              <div className={styles.brandName}>EduPortal</div>
+              <div className={styles.brandSub}>Teacher Console</div>
+            </div>
+          </div>
         </div>
-        
-        <nav className="sidebar-nav">
-          {links.map((link) => (
+
+        <nav className={styles.nav}>
+          <p className={styles.navLabel}>Main Menu</p>
+          {NAV.map((item) => (
             <button
-              key={link.path}
-              className="sidebar-nav-link"
-              onClick={() => handleNavClick(link.path)}
+              key={item.key}
+              className={`${styles.navItem} ${active === item.key ? styles.navActive : ""}`}
+              onClick={() => { onNav(item.key); onClose(); }}
             >
-              <span className="sidebar-nav-icon">{link.icon}</span>
-              <span className="sidebar-nav-text">{link.label}</span>
+              <span className={styles.navIcon}>{item.icon}</span>
+              <span>{item.label}</span>
+              {active === item.key && <span className={styles.activeDot} />}
             </button>
           ))}
         </nav>
-      </aside>
 
-      <button 
-        className="sidebar-toggle"
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-      >
-        ☰
-      </button>
+        <div className={styles.sidebarBottom}>
+          <button className={styles.logoutBtn} onClick={handleLogout}>
+            <span>🚪</span>
+            <span>Logout</span>
+          </button>
+        </div>
+      </aside>
     </>
   );
-};
+}

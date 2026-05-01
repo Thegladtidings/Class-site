@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 export const Navbar = ({ title }) => {
-  const { state, logout } = useAuth();
+
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [timer, setTimer] = useState(null);
   const [timerColor, setTimerColor] = useState('#27ae60');
 
-  const user = state.user;
+  const user = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
   const firstLetter = user?.name?.charAt(0).toUpperCase() || 'U';
 
   // Check for active exam session
@@ -57,12 +56,14 @@ export const Navbar = ({ title }) => {
   }, []);
 
   const handleLogout = async () => {
-    logout();
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('user');  
     navigate('/login');
   };
 
   const handleProfile = () => {
-    const role = state.role;
+    const role = localStorage.getItem('role');
     navigate(role === 'student' ? '/student/profile' : '/teacher/profile');
     setDropdownOpen(false);
   };

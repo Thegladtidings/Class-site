@@ -1,7 +1,7 @@
 import express from 'express';
 import { configDotenv } from 'dotenv';
 import connectDB from './config/database.js';
-
+import cors from 'cors';
 import studentRoutes    from './routes/studentRoute.js';
 import teacherRoutes    from './routes/teacherRoute.js';
 import assignmentRoutes from './routes/assignmentRoute.js';
@@ -11,9 +11,14 @@ configDotenv();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
-
-app.use(express.json());
-
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true, // allow cookies/auth headers if needed
+  })
+);
+app.use(express.json()); // for parsing application/json
+app.use(express.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
 // ── Routes ──────────────────────────────────────────────────────────────────
 app.use('/api/students',    studentRoutes);
 app.use('/api/teachers',    teacherRoutes);

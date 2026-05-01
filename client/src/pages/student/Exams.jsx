@@ -2,13 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from '../../components/Navbar';
 import { Sidebar } from '../../components/Sidebar';
-import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import '../../css/exam.css';
 
 export default function StudentExams() {
   const navigate = useNavigate();
-  const { state: authState } = useAuth();
   const { getExams, getStudentExamSessions, createExamSession } = useData();
   const [exams, setExams] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -18,7 +16,8 @@ export default function StudentExams() {
     const loadData = async () => {
       try {
         const allExams = getExams();
-        const studentSessions = getStudentExamSessions(authState.user.id);
+        const userId = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).id : null;
+        const studentSessions = getStudentExamSessions(userId);
         setExams(allExams);
         setSessions(studentSessions);
       } catch (error) {
@@ -47,7 +46,8 @@ export default function StudentExams() {
 
   const handleStartExam = async (examId) => {
     try {
-      const session = await createExamSession(examId, authState.user.id);
+      const userId = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).id : null;
+      const session = await createExamSession(examId, userId);
       const exam = exams.find(e => e.id === examId);
       
       // Store exam session in sessionStorage

@@ -1,33 +1,27 @@
-import React, { useEffect } from 'react';
+import { useEffect } from "react";
+import styles from "../css/Modal.module.css";
 
-export const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
+export default function Modal({ title, onClose, children, footer }) {
+  // Close on Escape key
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'auto';
-    }
-
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
-  }, [isOpen]);
-
-  if (!isOpen) return null;
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className={`modal ${size}`} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2 className="modal-title">{title}</h2>
-          <button className="modal-close" onClick={onClose}>
-            ×
-          </button>
+    <div
+      className={styles.overlay}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className={styles.modal}>
+        <div className={styles.modalHead}>
+          <h2 className={styles.modalTitle}>{title}</h2>
+          <button className={styles.closeBtn} onClick={onClose}>✕</button>
         </div>
-        <div className="modal-body">
-          {children}
-        </div>
+        <div className={styles.modalBody}>{children}</div>
+        {footer && <div className={styles.modalFoot}>{footer}</div>}
       </div>
     </div>
   );
-};
+}
