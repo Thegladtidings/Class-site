@@ -13,7 +13,7 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: "https://class-sites.netlify.app",
     credentials: true, // allow cookies/auth headers if needed
   })
 );
