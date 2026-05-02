@@ -13,7 +13,8 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://class-sites.netlify.app"
+"https://class-site-flax.vercel.app",
+"https://class-sites.netlify.app"
 ];
 
 app.use(cors({
