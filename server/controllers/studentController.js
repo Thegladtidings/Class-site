@@ -87,3 +87,16 @@ export const getAllStudents = async (req, res) => {
     res.status(500).json({ message: "Error fetching students", error: err.message });
   }
 };
+export const getStudentProfile = async (req, res) => {
+  try {
+    const student = await Student.findById(req.user.id).select("-password");
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    res.json({ student });
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching profile", error: err.message });
+  }
+};

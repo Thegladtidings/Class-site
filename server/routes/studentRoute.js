@@ -5,14 +5,15 @@ import {
   registerStudent,
   updateStudentProfile,
   getAllStudents,
+  getStudentProfile
 } from "../controllers/studentController.js";
 
 const router = Router();
 
 router.post("/register", registerStudent);
 router.post("/login", studentLogin);
-router.patch("/profile", protect, authorise("student"), updateStudentProfile);
-
+router.patch("/profile-update", protect, authorise("student"), updateStudentProfile);
+router.get("/profile", protect, authorise("student"), getStudentProfile);
 // Teacher/admin can see all students
 router.get("/", protect, authorise("teacher", "admin"), getAllStudents);
 

@@ -194,24 +194,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Demo credentials */}
-        <div className="lp-demo">
-          <span className="lp-demo__label">Demo Credentials</span>
-          <div className="lp-demo__grid">
-            <div className="lp-demo__item">
-              <span className="lp-demo__role">Student</span>
-              <code>unaysah@school.com</code>
-              <code>student123</code>
-            </div>
-            <div className="lp-demo__divider" aria-hidden="true" />
-            <div className="lp-demo__item">
-              <span className="lp-demo__role">Teacher</span>
-              <code>teacher@school.com</code>
-              <code>teacher123</code>
-            </div>
-          </div>
-        </div>
-
+      
         {/* Footer ornament */}
         <div className="lp-footer" aria-hidden="true">
           <span />

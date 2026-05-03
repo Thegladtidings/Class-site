@@ -26,7 +26,7 @@ export const postAnnouncement = async (req, res) => {
 // ─── GET all announcements by teacher ────────────────────────────────────────
 export const getAnnouncements = async (req, res) => {
   try {
-    const announcements = await Announcement.find({ postedBy: req.user.id })
+    const announcements = await Announcement.find()
       .sort({ createdAt: -1 });
     res.json({ announcements });
   } catch (err) {

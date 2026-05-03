@@ -21,7 +21,7 @@ router.patch("/submissions/:submissionId/grade", protect, authorise("teacher"), 
 router.delete("/:assignmentId", protect, authorise("teacher"), deleteAssignment);
 
 // ── Student routes ──────────────────────────────────────────────────────────
-router.get("/",             protect, authorise("student"), getAssignmentsForStudent);
+router.get("/student",             protect, authorise("student"), getAssignmentsForStudent);
 router.post("/:assignmentId/submit", protect, authorise("student"), submitAssignment);
 router.get("/my-submissions", protect, authorise("student"), getMySubmissions);
 

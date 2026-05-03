@@ -1,14 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Toast from "../../components/Toast.jsx";
 import styles from "../../css/Sections.module.css";
-import { postAnnouncement, deleteAnnouncement } from "../api/teacherApi";
+import { postAnnouncement, deleteAnnouncement, getAnnouncements } from "../api/teacherApi";
 
 const EMPTY = {
   title:        "",
   message:      "",
   type:         "notice",
   studentName:  "",
-  studentPhoto: "", // Cloudinary/S3 URL
+  studentPhoto: "",
 };
 
 const TYPE_META = {
@@ -18,39 +18,64 @@ const TYPE_META = {
   event:        { label: "Event",        color: "amber", icon: "📅" },
 };
 
-export default function AnnouncementsSection({ announcements: initList = [], loading }) {
-  const [list, setList]         = useState([]);
-  const [form, setForm]         = useState(EMPTY);
-  const [submitting, setSub]    = useState(false);
-  const [toast, setToast]       = useState(null);
-  const [photoPreview, setPreview] = useState("");
+const MAX_PHOTO_MB = 2;
 
+export default function AnnouncementsSection({ loading: externalLoading }) {
+  const [list, setList]            = useState([]);
+  const [fetching, setFetching]    = useState(true);   // ← new: loading state for GET
+  const [form, setForm]            = useState(EMPTY);
+  const [submitting, setSub]       = useState(false);
+  const [toast, setToast]          = useState(null);
+  const [photoPreview, setPreview] = useState("");
+  const fileInputRef               = useRef(null);
+
+  /* ── Fetch announcements on mount ── */
   useEffect(() => {
-    if (Array.isArray(initList)) setList(initList);
-  }, [initList]);
+    async function fetchAnnouncements() {
+      try {
+        const res = await getAnnouncements();
+        // Handle both shapes: res.data.announcements or res.announcements
+        const data = res?.data?.announcements ?? res?.announcements ?? [];
+        setList(data);
+      } catch (err) {
+        setToast({ msg: "Could not load announcements.", type: "error" });
+      } finally {
+        setFetching(false);
+      }
+    }
+    fetchAnnouncements();
+  }, []);
 
   function setF(field, value) {
     setForm((p) => ({ ...p, [field]: value }));
   }
 
-  /* ── photo file → base64 preview + store URL ── */
+  /* ── Photo: validate → preview → base64 ── */
   function handlePhotoChange(e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Show local preview immediately
-    const reader = new FileReader();
-    reader.onload = (ev) => setPreview(ev.target.result);
-    reader.readAsDataURL(file);
+    if (file.size > MAX_PHOTO_MB * 1024 * 1024) {
+      setToast({ msg: `Photo must be under ${MAX_PHOTO_MB}MB.`, type: "error" });
+      e.target.value = "";
+      return;
+    }
 
-    // In production you'd upload to Cloudinary here and set the URL.
-    // For now we store the base64 as the photo (works for demo).
-    const reader2 = new FileReader();
-    reader2.onload = (ev) => setF("studentPhoto", ev.target.result);
-    reader2.readAsDataURL(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setPreview(ev.target.result);
+      setF("studentPhoto", ev.target.result);   // base64 stored for API
+    };
+    reader.readAsDataURL(file);
   }
 
-  /* ── submit ── */
+  function clearPhoto() {
+    setPreview("");
+    setF("studentPhoto", "");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  /* ── Submit ── */
   async function handleSubmit() {
     if (!form.title.trim() || !form.message.trim()) {
       setToast({ msg: "Title and message are required.", type: "error" });
@@ -71,7 +96,7 @@ export default function AnnouncementsSection({ announcements: initList = [], loa
         studentPhoto: form.studentPhoto || undefined,
       };
 
-      const res    = await postAnnouncement(payload);
+      const res     = await postAnnouncement(payload);
       const created = res?.data?.announcement ?? {
         _id: `n${Date.now()}`, ...payload,
         createdAt: new Date().toISOString(),
@@ -79,7 +104,7 @@ export default function AnnouncementsSection({ announcements: initList = [], loa
 
       setList((p) => [created, ...p]);
       setForm(EMPTY);
-      setPreview("");
+      clearPhoto();
       setToast({ msg: "Announcement posted!", type: "success" });
     } catch (err) {
       setToast({ msg: err?.response?.data?.message || "Failed to post.", type: "error" });
@@ -88,7 +113,7 @@ export default function AnnouncementsSection({ announcements: initList = [], loa
     }
   }
 
-  /* ── delete ── */
+  /* ── Delete ── */
   async function handleDelete(id) {
     if (!window.confirm("Delete this announcement?")) return;
     try { await deleteAnnouncement(id); } catch {}
@@ -97,13 +122,16 @@ export default function AnnouncementsSection({ announcements: initList = [], loa
   }
 
   const isBestStudent = form.type === "best_student";
+  const isLoading     = fetching || externalLoading;
 
   return (
     <div className={styles.section}>
       <div className={styles.sectionHead}>
         <div>
           <h2 className={styles.sectionTitle}>Announcements</h2>
-          <p className={styles.sectionSub}>{list.length} posted</p>
+          <p className={styles.sectionSub}>
+            {isLoading ? "Loading…" : `${list.length} posted`}
+          </p>
         </div>
       </div>
 
@@ -125,7 +153,7 @@ export default function AnnouncementsSection({ announcements: initList = [], loa
               <label>Type</label>
               <select
                 value={form.type}
-                onChange={(e) => { setF("type", e.target.value); setPreview(""); }}
+                onChange={(e) => { setF("type", e.target.value); clearPhoto(); }}
               >
                 {Object.entries(TYPE_META).map(([k, v]) => (
                   <option key={k} value={k}>{v.icon} {v.label}</option>
@@ -165,7 +193,10 @@ export default function AnnouncementsSection({ announcements: initList = [], loa
 
               {/* Photo upload */}
               <div className={styles.formGroup} style={{ marginBottom: 0 }}>
-                <label>Student Photo <span style={{ color: "#94a3b8", fontWeight: 400 }}>(optional)</span></label>
+                <label>
+                  Student Photo{" "}
+                  <span style={{ color: "#94a3b8", fontWeight: 400 }}>(optional · max 2MB)</span>
+                </label>
 
                 <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 6 }}>
                   {/* Preview circle */}
@@ -186,20 +217,22 @@ export default function AnnouncementsSection({ announcements: initList = [], loa
                       display: "inline-flex", alignItems: "center", gap: 6,
                       padding: "7px 16px", borderRadius: 8, cursor: "pointer",
                       background: "#1a6ef5", color: "#fff",
-                      fontSize: 12, fontWeight: 600, border: "none",
+                      fontSize: 12, fontWeight: 600,
                     }}>
                       📷 Choose Photo
                       <input
+                        ref={fileInputRef}
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp"
                         style={{ display: "none" }}
                         onChange={handlePhotoChange}
                       />
                     </label>
+
                     {photoPreview && (
                       <button
                         type="button"
-                        onClick={() => { setPreview(""); setF("studentPhoto", ""); }}
+                        onClick={clearPhoto}
                         style={{
                           marginLeft: 8, background: "none", border: "none",
                           color: "#ef4444", fontSize: 12, cursor: "pointer", fontWeight: 600,
@@ -230,7 +263,7 @@ export default function AnnouncementsSection({ announcements: initList = [], loa
       </div>
 
       {/* ── List ── */}
-      {loading ? (
+      {isLoading ? (
         <div className={styles.skeletonList}>
           {Array(3).fill(0).map((_, i) => (
             <div key={i} className={styles.skeletonRow} style={{ height: 80 }} />
