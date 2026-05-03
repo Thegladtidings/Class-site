@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import Modal from "../../components/Modal.jsx";
 import Toast from "../../components/Toast.jsx";
-import styles from "../../css/StudentDashboard.module.css";
+import styles from "../../css/Studentdashboard.module.css";
 import { getAssignments, submitAssignment, getMySubmissions } from "../api/studentApi";
 
 const STATUS_META = {
