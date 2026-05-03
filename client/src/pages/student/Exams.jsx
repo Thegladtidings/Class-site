@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Toast from "../../components/Toast.jsx";
-import styles from "../../css/StudentDashboard.module.css";
+import styles from "../../css/Studentdashboard.module.css";
 import {
   getAvailableExams,
   getMyExamResults,
