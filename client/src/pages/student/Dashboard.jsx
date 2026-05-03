@@ -6,6 +6,7 @@ import Header                     from "../../components/Header.jsx";
 import Toast                      from "../../components/Toast.jsx";
 import StudentAssignments         from "./Assignments.jsx";
 import StudentExams               from "./Exams.jsx";
+import StudentProfile             from "./Profile.jsx";
 import { useStudentData }         from "./UseStudentData.js";
 
 import styles from "../../css/Studentdashboard.module.css";
@@ -48,6 +49,7 @@ export default function StudentDashboard() {
     { id: "assignments",   label: "Assignments",   icon: "📋" },
     { id: "grades",        label: "Grades",        icon: "📊" },
     { id: "announcements", label: "Announcements", icon: "📢" },
+    { id: "profile",       label: "Profile",       icon: "👤" },
   ];
 
   function renderContent() {
@@ -60,6 +62,15 @@ export default function StudentDashboard() {
         return <GradesSection grades={gradeList} loading={isLoading} />;
       case "announcements":
         return <AnnouncementsSection announcements={announcementList} loading={isLoading} />;
+      case "profile":case "profile":
+  return (
+    <StudentProfile
+      profile={profileData}
+      onUpdate={(updated) => {
+        setToast({ msg: "Profile updated successfully!", type: "success" });
+      }}
+    />
+  );
       default:
         return (
           <DashboardHome

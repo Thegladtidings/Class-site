@@ -9,6 +9,7 @@ const NAV = [
   { key: "grades",        label: "Grades",         icon: "📊" },
   { key: "announcements", label: "Announcements",  icon: "📢" },
   { key: "settings",      label: "Settings",       icon: "⚙" },
+  { key: "profile",       label: "Profile",        icon: "👤" },
 ];
 
 export const Sidebar = ({ active, onNav, open, onClose }) => {

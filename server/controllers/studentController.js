@@ -55,9 +55,15 @@ export const registerStudent = async (req, res) => {
 };
 
 // UPDATE PROFILE (student updates their own profile)
+// NOTE: `name` is intentionally excluded — it cannot be changed after registration.
 export const updateStudentProfile = async (req, res) => {
   try {
-    const { email, name, profileImage } = req.body;
+    const { email, profileImage } = req.body;
+
+    // Explicitly block name changes even if sent in the request body
+    if (req.body.name) {
+      return res.status(400).json({ message: "Student name cannot be changed." });
+    }
 
     if (email) {
       const emailExists = await Student.findOne({ email, _id: { $ne: req.user.id } });
@@ -66,7 +72,10 @@ export const updateStudentProfile = async (req, res) => {
 
     const student = await Student.findByIdAndUpdate(
       req.user.id,
-      { ...(email && { email }), ...(name && { name }), ...(profileImage && { profileImage }) },
+      {
+        ...(email && { email }),
+        ...(profileImage && { profileImage }),
+      },
       { new: true, select: "-password" }
     );
 
@@ -87,6 +96,8 @@ export const getAllStudents = async (req, res) => {
     res.status(500).json({ message: "Error fetching students", error: err.message });
   }
 };
+
+// GET STUDENT PROFILE (student views their own profile)
 export const getStudentProfile = async (req, res) => {
   try {
     const student = await Student.findById(req.user.id).select("-password");
