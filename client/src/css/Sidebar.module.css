@@ -11,9 +11,13 @@
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Update your existing .brand rule to this */
 .brand {
   padding: 24px 20px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex;              /* ADD */
+  align-items: center;        /* ADD */
+  justify-content: space-between; /* ADD */
 }
 .brandMark {
   display: flex;

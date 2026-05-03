@@ -734,3 +734,9 @@
   font-size: 15px;
   font-weight: 800;
 }
+/* ADD — gives the main area space for the fixed 240px sidebar on desktop */
+@media (min-width: 901px) {
+  .mainArea {
+    margin-left: 240px;
+  }
+}
