@@ -27,9 +27,15 @@ export default function RegisterModal({ onClose }) {
     setLoading(true);
     try {
       const { name, email, password, className, gender, studentId } = form;
-      await axios.post(`${API_BASE}/api/students/register`, {
-        name, email, password, className, gender, studentId,
-      });
+      await axios.post(
+  `${API_BASE}/api/students/register`,
+  { name, email, password, className, gender, studentId },
+  {
+    headers: {
+      "Content-Type": "application/json",
+    },
+  }
+);
       setSuccess('Account created! You can now sign in.');
       setTimeout(onClose, 2000);
     } catch (err) {
