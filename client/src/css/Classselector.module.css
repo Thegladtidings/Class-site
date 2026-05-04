@@ -1,0 +1,90 @@
+/* ─────────────────────────────────────────────────────────────
+   Class Selector Screen
+   Add these rules to your Teacherdashboard.module.css
+───────────────────────────────────────────────────────────── */
+
+.classSelectorWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 70vh;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.classSelectorHeader {
+  margin-bottom: 40px;
+}
+
+.classSelectorIcon {
+  font-size: 52px;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.classSelectorHeading {
+  font-family: 'Sora', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 10px;
+}
+
+.classSelectorSub {
+  font-size: 0.95rem;
+  color: #64748b;
+  max-width: 440px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* Grid of class cards */
+.classGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  width: 100%;
+  max-width: 800px;
+}
+
+.classCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 20px;
+  border-radius: 16px;
+  border: 2px solid #e2e8f0;
+  background: #ffffff;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  font-family: 'Sora', sans-serif;
+}
+
+.classCard:hover {
+  border-color: #1a6ef5;
+  box-shadow: 0 6px 24px rgba(26, 110, 245, 0.12);
+  transform: translateY(-3px);
+}
+
+.classCardIcon {
+  font-size: 32px;
+}
+
+.classCardLabel {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.classCardArrow {
+  font-size: 0.85rem;
+  color: #1a6ef5;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.classCard:hover .classCardArrow {
+  opacity: 1;
+}

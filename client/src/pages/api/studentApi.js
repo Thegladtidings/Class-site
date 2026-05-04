@@ -9,7 +9,7 @@ export const getStudentStats = () => axiosInstance.get("/api/student/stats");
 
 /* ─── Assignments ───────────────────────────────── */
 export const getAssignments       = ()         => axiosInstance.get("/api/assignments/student");
-export const submitAssignment     = (id, data) => axiosInstance.post(`/api/assignments/${id}/submit`, data);
+export const submitAssignment = (id, formData) => axiosInstance.post(`/api/assignments/submit/${id}`, formData);
 export const getMySubmissions     = ()         => axiosInstance.get("/api/assignments/my-submissions");
 
 /* ─── Exams ─────────────────────────────────────── */
@@ -22,4 +22,4 @@ export const getMyExamResults     = ()         => axiosInstance.get("/api/exams/
 export const getAnnouncements     = ()         => axiosInstance.get("/api/announcements");
 
 /* ─── Grades ───────────────────────────────────── */
-export const getMyGrades          = ()         => axiosInstance.get("/api/student/grades");
+export const getMyGrades = () => axiosInstance.get("/api/grades/student/me");

@@ -7,12 +7,13 @@ import {
   getAllStudents,
   getStudentProfile
 } from "../controllers/studentController.js";
+import { upload } from "../middleware/upload.js";
 
 const router = Router();
 
 router.post("/register", registerStudent);
 router.post("/login", studentLogin);
-router.patch("/profile-update", protect, authorise("student"), updateStudentProfile);
+router.patch("/profile-update", protect, authorise("student"), upload.single("profileImage"), updateStudentProfile);
 router.get("/profile", protect, authorise("student"), getStudentProfile);
 // Teacher/admin can see all students
 router.get("/", protect, authorise("teacher", "admin"), getAllStudents);

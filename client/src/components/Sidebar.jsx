@@ -19,8 +19,8 @@ export const Sidebar = ({
   open,
   onClose,
   navItems,          // optional — pass from student dashboard to override default nav
-  brandName = "EduPortal",
-  brandSub  = "Teacher Console",
+  brandName = "ClassSite",
+  brandSub,
 }) => {
   const navigate = useNavigate();
 

@@ -56,19 +56,20 @@ export const gradeSubmission = async (req, res) => {
   try {
     const { submissionId } = req.params;
     const { grade, teacherRemark } = req.body;
-
+console.log("Grading submission:", submissionId, "with grade:", grade);
     const submission = await Submission.findById(submissionId).populate("assignment");
     if (!submission) return res.status(404).json({ message: "Submission not found" });
-
+console.log("Found submission for assignment:", submission.assignment.title);
     // Ensure teacher owns the assignment
     if (String(submission.assignment.postedBy) !== String(req.user.id)) {
       return res.status(403).json({ message: "Not authorised to grade this submission" });
     }
-
+console.log("Updating submission with grade and remark");
     submission.grade = grade;
     submission.teacherRemark = teacherRemark;
+    console.log("Saving graded submission to database");
     await submission.save();
-
+console.log("Submission graded successfully");
     res.json({ message: "Submission graded", submission });
   } catch (err) {
     res.status(500).json({ message: "Error grading submission", error: err.message });
@@ -112,24 +113,39 @@ export const getAssignmentsForStudent = async (req, res) => {
 // ─── STUDENT: Submit an assignment ────────────────────────────────────────────
 export const submitAssignment = async (req, res) => {
   try {
+
     const { assignmentId } = req.params;
-    const { fileUrl, fileName, note } = req.body;
-
+    const { note } = req.body;
+console.log("Received submission for assignment:", assignmentId, "with note:", note);
     const assignment = await Assignment.findById(assignmentId);
-    if (!assignment || !assignment.isActive)
+    if (!assignment || !assignment.isActive) {
       return res.status(404).json({ message: "Assignment not found" });
+    }
 
-    // Check for duplicate submission
     const alreadySubmitted = await Submission.findOne({
       assignment: assignmentId,
       student: req.user.id,
     });
-    if (alreadySubmitted)
-      return res.status(400).json({ message: "You have already submitted this assignment" });
 
-    // Determine if late
-    const isLate = assignment.dueDate && new Date() > new Date(assignment.dueDate);
+    if (alreadySubmitted) {
+      return res.status(400).json({
+        message: "You have already submitted this assignment",
+      });
+    }
 
+    // ✅ Cloudinary file comes from req.file
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const fileUrl = req.file.path;   // Cloudinary URL
+    const fileName = req.file.originalname;
+
+    const isLate =
+      assignment.dueDate && new Date() > new Date(assignment.dueDate);
+
+
+      
     const submission = await Submission.create({
       assignment: assignmentId,
       student: req.user.id,
@@ -140,11 +156,16 @@ export const submitAssignment = async (req, res) => {
     });
 
     res.status(201).json({
-      message: isLate ? "Assignment submitted (marked as late)" : "Assignment submitted successfully",
+      message: isLate
+        ? "Assignment submitted (marked as late)"
+        : "Assignment submitted successfully",
       submission,
     });
   } catch (err) {
-    res.status(500).json({ message: "Error submitting assignment", error: err.message });
+    res.status(500).json({
+      message: "Error submitting assignment",
+      error: err.message,
+    });
   }
 };
 

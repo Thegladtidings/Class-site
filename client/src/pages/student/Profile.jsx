@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
 import '../../css/profile.css';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+import axiosInstance from '../api/Axiosinstance.js';
 
 function getInitials(name = '') {
   return name
@@ -14,93 +12,83 @@ function getInitials(name = '') {
 }
 
 export default function StudentProfile({ profile, onUpdate }) {
-  const fileInputRef = useRef(null);
+  const fileInputRef    = useRef(null);
+  const selectedFileRef = useRef(null);   // holds the actual File object
 
-  const [student, setStudent] = useState(profile || null);
-
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({
-    email: '',
-    className: '',
-    gender: '',
-    profileImage: '',
-  });
-
+  const [student,      setStudent]      = useState(profile || null);
+  const [editing,      setEditing]      = useState(false);
+  const [form,         setForm]         = useState({ email: '' });
   const [imagePreview, setImagePreview] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState('');
-  const [saveSuccess, setSaveSuccess] = useState('');
+  const [saving,       setSaving]       = useState(false);
+  const [saveError,    setSaveError]    = useState('');
+  const [saveSuccess,  setSaveSuccess]  = useState('');
 
-  /* ✅ Sync with dashboard data */
+  /* ── Sync when profile prop changes ── */
   useEffect(() => {
     if (!profile) return;
-
     setStudent(profile);
-
-    setForm({
-      email: profile.email || '',
-      className: profile.className || '',
-      gender: profile.gender || '',
-      profileImage: profile.profileImage || '',
-    });
-
+    setForm({ email: profile.email || '' });
     setImagePreview(profile.profileImage || '');
   }, [profile]);
 
-  /* 🖼 Image upload */
-  const handleImageChange = (e) => {
+  /* ── File selected ── */
+  function handleImageChange(e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      setSaveError('Image must be under 2MB.');
+    if (file.size > 5 * 1024 * 1024) {
+      setSaveError('Image must be under 5 MB.');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result);
-      setForm((f) => ({ ...f, profileImage: reader.result }));
-    };
-    reader.readAsDataURL(file);
-  };
+    selectedFileRef.current = file;
 
-  /* 💾 Save */
-  const handleSave = async () => {
+    /* Show a local preview immediately — the real URL comes back from Cloudinary */
+    const reader = new FileReader();
+    reader.onloadend = () => setImagePreview(reader.result);
+    reader.readAsDataURL(file);
+  }
+
+  /* ── Save ── */
+  async function handleSave() {
     setSaveError('');
     setSaveSuccess('');
-    setSaving(true);
 
-    const token = localStorage.getItem('token');
-    const payload = {};
+    const emailChanged = form.email !== student?.email;
+    const imageChanged = !!selectedFileRef.current;
 
-    if (form.email !== student.email) payload.email = form.email;
-    if (form.profileImage !== student.profileImage)
-      payload.profileImage = form.profileImage;
-
-    if (Object.keys(payload).length === 0) {
+    if (!emailChanged && !imageChanged) {
       setSaveSuccess('No changes to save.');
-      setSaving(false);
       setEditing(false);
       return;
     }
 
+    setSaving(true);
     try {
-      const { data } = await axios.put(
-        `${API_BASE}/api/students/profile`,
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      /*
+        Send as FormData so multer can read the file.
+        axiosInstance will auto-remove Content-Type so the
+        browser sets the correct multipart boundary.
+      */
+      const fd = new FormData();
 
+      if (emailChanged)  fd.append('email',        form.email);
+      if (imageChanged)  fd.append('profileImage',  selectedFileRef.current);
+
+      const { data } = await axiosInstance.put('/api/students/profile', fd);
+
+      /* Update local state with what the server saved */
       setStudent(data.student);
+      setImagePreview(data.student.profileImage || imagePreview);
       localStorage.setItem('user', JSON.stringify(data.student));
+
+      selectedFileRef.current = null;
+      if (fileInputRef.current) fileInputRef.current.value = '';
 
       setSaveSuccess('Profile updated successfully.');
       setEditing(false);
 
-      /* 🔁 Notify dashboard */
       if (onUpdate) onUpdate(data.student);
-
     } catch (err) {
       const msg =
         err.response?.data?.message ||
@@ -109,29 +97,24 @@ export default function StudentProfile({ profile, onUpdate }) {
     } finally {
       setSaving(false);
     }
-  };
+  }
 
-  const handleCancel = () => {
-    setForm({
-      email: student.email || '',
-      className: student.className || '',
-      gender: student.gender || '',
-      profileImage: student.profileImage || '',
-    });
-
-    setImagePreview(student.profileImage || '');
+  /* ── Cancel ── */
+  function handleCancel() {
+    setForm({ email: student?.email || '' });
+    setImagePreview(student?.profileImage || '');
+    selectedFileRef.current = null;
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setSaveError('');
     setSaveSuccess('');
     setEditing(false);
-  };
+  }
 
-  /* ✅ Safe fallback */
+  /* ── Loading state ── */
   if (!student) {
     return (
       <div className="sp-root">
-        <div className="sp-loading">
-          <p>Loading profile…</p>
-        </div>
+        <div className="sp-loading"><p>Loading profile…</p></div>
       </div>
     );
   }
@@ -140,11 +123,12 @@ export default function StudentProfile({ profile, onUpdate }) {
     <div className="sp-root">
       <div className="sp-page">
 
-        {/* Avatar / Hero */}
+        {/* ── Avatar / Hero ── */}
         <div className="sp-hero">
           <div
             className={`sp-avatar ${editing ? 'sp-avatar--editable' : ''}`}
             onClick={() => editing && fileInputRef.current?.click()}
+            title={editing ? 'Click to change photo' : ''}
           >
             {imagePreview ? (
               <img src={imagePreview} alt="Profile" className="sp-avatar__img" />
@@ -153,8 +137,17 @@ export default function StudentProfile({ profile, onUpdate }) {
                 {getInitials(student.name)}
               </span>
             )}
+
+            {/* Camera overlay hint when editing */}
+            {editing && (
+              <div className="sp-avatar__overlay">
+                <span style={{ fontSize: 22 }}>📷</span>
+                <span style={{ fontSize: 11, marginTop: 2 }}>Change</span>
+              </div>
+            )}
           </div>
 
+          {/* Hidden file input */}
           <input
             ref={fileInputRef}
             type="file"
@@ -165,22 +158,35 @@ export default function StudentProfile({ profile, onUpdate }) {
 
           <div className="sp-hero__info">
             <h1 className="sp-hero__name">{student.name}</h1>
-            <p>{student.className}</p>
+            <p style={{ color: '#64748b', fontSize: 14, margin: 0 }}>
+              {student.className}
+            </p>
           </div>
         </div>
 
-        {/* Alerts */}
+        {/* ── Alerts ── */}
         {saveSuccess && (
-          <div className="sp-alert sp-alert--success">
-            ✔ {saveSuccess}
-          </div>
+          <div className="sp-alert sp-alert--success">✔ {saveSuccess}</div>
+        )}
+        {saveError && (
+          <div className="sp-alert sp-alert--error">⚠ {saveError}</div>
         )}
 
-        {saveError && (
-          <div className="sp-alert sp-alert--error">
-            ⚠ {saveError}
+        {/* ── Fields ── */}
+
+        {/* Name — always read-only */}
+        <div className="sp-field">
+          <label className="sp-field__label">Full Name</label>
+          <div className="sp-field__wrap">
+            <span className="sp-field__value">{student.name}</span>
+            <span style={{
+              fontSize: 10, color: '#94a3b8', marginLeft: 8,
+              background: '#f1f5f9', padding: '2px 8px', borderRadius: 99,
+            }}>
+              Cannot be changed
+            </span>
           </div>
-        )}
+        </div>
 
         {/* Email */}
         <div className="sp-field">
@@ -189,10 +195,9 @@ export default function StudentProfile({ profile, onUpdate }) {
             {editing ? (
               <input
                 className="sp-field__input"
+                type="email"
                 value={form.email}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, email: e.target.value }))
-                }
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
               />
             ) : (
               <span className="sp-field__value">{student.email}</span>
@@ -200,7 +205,27 @@ export default function StudentProfile({ profile, onUpdate }) {
           </div>
         </div>
 
-        {/* Actions */}
+        {/* Class — read-only */}
+        {student.className && (
+          <div className="sp-field">
+            <label className="sp-field__label">Class</label>
+            <div className="sp-field__wrap">
+              <span className="sp-field__value">{student.className}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Student ID — read-only */}
+        {student.studentId && (
+          <div className="sp-field">
+            <label className="sp-field__label">Student ID</label>
+            <div className="sp-field__wrap">
+              <span className="sp-field__value">{student.studentId}</span>
+            </div>
+          </div>
+        )}
+
+        {/* ── Actions ── */}
         <div className="sp-actions">
           {editing ? (
             <>
@@ -209,9 +234,8 @@ export default function StudentProfile({ profile, onUpdate }) {
                 onClick={handleSave}
                 disabled={saving}
               >
-                {saving ? 'Saving…' : 'Save Changes'}
+                {saving ? 'Uploading…' : 'Save Changes'}
               </button>
-
               <button
                 className="sp-btn sp-btn--cancel"
                 onClick={handleCancel}
@@ -229,7 +253,7 @@ export default function StudentProfile({ profile, onUpdate }) {
                 setEditing(true);
               }}
             >
-              Edit Profile
+              ✏️ Edit Profile
             </button>
           )}
         </div>

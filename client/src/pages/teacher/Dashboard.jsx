@@ -78,6 +78,7 @@ export default function TeacherDashboard() {
         onNav={setActive}
         open={sidebarOpen}
         onClose={() => setSidebar(false)}
+        brandSub={"Teacher Portal"}
       />
       <div className={styles.mainArea}>
         <Header

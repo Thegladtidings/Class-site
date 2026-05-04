@@ -58,9 +58,9 @@ export const registerStudent = async (req, res) => {
 // NOTE: `name` is intentionally excluded — it cannot be changed after registration.
 export const updateStudentProfile = async (req, res) => {
   try {
-    const { email, profileImage } = req.body;
+    const { email } = req.body;
 
-    // Explicitly block name changes even if sent in the request body
+    // Block name changes
     if (req.body.name) {
       return res.status(400).json({ message: "Student name cannot be changed." });
     }
@@ -70,10 +70,17 @@ export const updateStudentProfile = async (req, res) => {
       if (emailExists) return res.status(400).json({ message: "Email already in use" });
     }
 
+    /*
+      If a file was uploaded via multer + Cloudinary,
+      req.file.path contains the Cloudinary URL.
+      Otherwise fall back to a URL string in req.body.profileImage (optional).
+    */
+    const profileImage = req.file?.path ?? req.body.profileImage ?? undefined;
+
     const student = await Student.findByIdAndUpdate(
       req.user.id,
       {
-        ...(email && { email }),
+        ...(email        && { email }),
         ...(profileImage && { profileImage }),
       },
       { new: true, select: "-password" }
@@ -84,7 +91,6 @@ export const updateStudentProfile = async (req, res) => {
     res.status(500).json({ message: "Error updating profile", error: err.message });
   }
 };
-
 // GET ALL STUDENTS (teacher/admin)
 export const getAllStudents = async (req, res) => {
   try {

@@ -7,6 +7,8 @@ import teacherRoutes    from './routes/teacherRoute.js';
 import assignmentRoutes from './routes/assignmentRoute.js';
 import examRoutes       from './routes/examRoute.js';
 import announcementRoutes from './routes/announcementRoute.js';
+import gradeRoutes from './routes/gradeRoute.js';
+
 configDotenv();
 
 const app = express();
@@ -30,12 +32,14 @@ app.use(cors({
 }));
 app.use(express.json()); // for parsing application/json
 app.use(express.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
+app.use("/uploads", express.static("uploads"));
 // ── Routes ──────────────────────────────────────────────────────────────────
 app.use('/api/students',    studentRoutes);
 app.use('/api/teachers',    teacherRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/exams',       examRoutes);
 app.use('/api/announcements', announcementRoutes);
+app.use('/api/grades', gradeRoutes);
 
 app.get('/', (req, res) => res.send('School API is running ✅'));
 

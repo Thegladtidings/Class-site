@@ -11,11 +11,19 @@ const TERMS    = ["First Term", "Second Term", "Third Term"];
 const SUBJECTS = ["Mathematics", "Further Mathematics", "English", "Physics", "Chemistry", "Biology"];
 const CLASSES  = ["JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"];
 
-const EMPTY_FORM = {
-  title: "", subject: SUBJECTS[0], className: CLASSES[0],
-  term: TERMS[0], durationMins: 60, startTime: "", endTime: "",
-  questions: [{ question: "", options: ["", "", "", ""], correctAnswer: "" }],
-};
+/* Build the empty form, pre-seeding className if the teacher already picked a class */
+function emptyForm(selectedClass) {
+  return {
+    title:       "",
+    subject:     SUBJECTS[0],
+    className:   selectedClass || CLASSES[0],
+    term:        TERMS[0],
+    durationMins: 60,
+    startTime:   "",
+    endTime:     "",
+    questions:   [{ question: "", options: ["", "", "", ""], correctAnswer: "" }],
+  };
+}
 
 function cloneQuestion() {
   return { question: "", options: ["", "", "", ""], correctAnswer: "" };
@@ -40,7 +48,7 @@ function parseBulkText(raw) {
   return parsed;
 }
 
-/* ── Reusable question builder (shared by create + edit) ── */
+/* ── Question Builder (unchanged logic) ──────────────────── */
 function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bulkError, setBulkErr }) {
   function setQuestion(qi, field, value) {
     setForm((p) => {
@@ -197,22 +205,17 @@ function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bu
   );
 }
 
-/* ── Results Modal ── */
+/* ── Results Modal (unchanged) ──────────────────────────────── */
 function ResultsModal({ exam, results, onClose }) {
-  const avg = results.length
-    ? Math.round(results.reduce((s, r) => s + (r.percentage ?? 0), 0) / results.length)
-    : 0;
+  const avg    = results.length
+    ? Math.round(results.reduce((s, r) => s + (r.percentage ?? 0), 0) / results.length) : 0;
   const passed = results.filter((r) => (r.percentage ?? 0) >= 50).length;
 
   return (
     <Modal title={`Results — ${exam.title}`} onClose={onClose} footer={
       <button className={styles.cancelBtn} onClick={onClose}>Close</button>
     }>
-      {/* Summary strip */}
-      <div style={{
-        display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
-        gap: 12, marginBottom: 20,
-      }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 20 }}>
         {[
           { label: "Total Submitted", value: results.length, color: "#1a6ef5", bg: "#eff6ff" },
           { label: "Average Score",   value: `${avg}%`,      color: "#10b981", bg: "#f0fdf4" },
@@ -220,8 +223,7 @@ function ResultsModal({ exam, results, onClose }) {
         ].map((s) => (
           <div key={s.label} style={{
             textAlign: "center", padding: "14px 10px",
-            background: s.bg, borderRadius: 10,
-            border: `1px solid ${s.color}22`,
+            background: s.bg, borderRadius: 10, border: `1px solid ${s.color}22`,
           }}>
             <p style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</p>
             <p style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{s.label}</p>
@@ -233,7 +235,6 @@ function ResultsModal({ exam, results, onClose }) {
         <div className={styles.emptyState}><span>📊</span><p>No submissions yet.</p></div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {/* Header row */}
           <div style={{
             display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
             gap: 8, padding: "8px 12px",
@@ -259,8 +260,7 @@ function ResultsModal({ exam, results, onClose }) {
                 display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
                 gap: 8, padding: "10px 12px",
                 background: "#fff", borderRadius: 8,
-                border: "1.5px solid #e2e8f0",
-                alignItems: "center",
+                border: "1.5px solid #e2e8f0", alignItems: "center",
               }}>
                 <div>
                   <p style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>
@@ -273,19 +273,10 @@ function ResultsModal({ exam, results, onClose }) {
                 <p style={{ textAlign: "center", fontWeight: 600, fontSize: 13 }}>
                   {r.score ?? 0}/{r.totalMarks ?? "—"}
                 </p>
-                {/* Progress bar */}
                 <div style={{ textAlign: "center" }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: grade.color, marginBottom: 3 }}>
-                    {pct}%
-                  </p>
-                  <div style={{
-                    height: 4, borderRadius: 99, background: "#e2e8f0", overflow: "hidden",
-                  }}>
-                    <div style={{
-                      height: "100%", width: `${pct}%`,
-                      background: grade.color, borderRadius: 99,
-                      transition: "width 0.4s",
-                    }} />
+                  <p style={{ fontSize: 12, fontWeight: 700, color: grade.color, marginBottom: 3 }}>{pct}%</p>
+                  <div style={{ height: 4, borderRadius: 99, background: "#e2e8f0", overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: grade.color, borderRadius: 99, transition: "width 0.4s" }} />
                   </div>
                 </div>
                 <p style={{ textAlign: "center", fontSize: 12, color: "#64748b" }}>
@@ -308,21 +299,24 @@ function ResultsModal({ exam, results, onClose }) {
 
 /* ════════════════════════════════════════════════
    MAIN COMPONENT
+   NEW PROP: selectedClass — the class the teacher picked
+   in the dashboard class selector. Pre-seeds className
+   in create/edit forms and filters the exam list.
 ════════════════════════════════════════════════ */
-export default function ExamsSection({ loading: externalLoading }) {
+export default function ExamsSection({ loading: externalLoading, selectedClass }) {
   const [list, setList]           = useState([]);
   const [fetching, setFetching]   = useState(true);
 
   // Create modal
   const [showCreate, setCreate]   = useState(false);
-  const [createForm, setCreateForm] = useState(EMPTY_FORM);
+  const [createForm, setCreateForm] = useState(() => emptyForm(selectedClass));
   const [createTab, setCreateTab] = useState("manual");
   const [createBulk, setCreateBulk] = useState("");
   const [createBulkErr, setCreateBulkErr] = useState("");
   const [submitting, setSub]      = useState(false);
 
   // Edit modal
-  const [editTarget, setEditTarget] = useState(null);   // exam object being edited
+  const [editTarget, setEditTarget] = useState(null);
   const [editForm, setEditForm]     = useState(null);
   const [editTab, setEditTab]       = useState("manual");
   const [editBulk, setEditBulk]     = useState("");
@@ -330,14 +324,19 @@ export default function ExamsSection({ loading: externalLoading }) {
   const [saving, setSaving]         = useState(false);
 
   // Results modal
-  const [resultsExam, setResultsExam]     = useState(null);
-  const [resultsData, setResultsData]     = useState([]);
+  const [resultsExam, setResultsExam]   = useState(null);
+  const [resultsData, setResultsData]   = useState([]);
   const [resultsLoading, setResultsLoad] = useState(false);
 
-  const [toast, setToast]         = useState(null);
-  const [togglingId, setTogId]    = useState(null);
+  const [toast, setToast]   = useState(null);
+  const [togglingId, setTogId] = useState(null);
 
-  /* ── Fetch on mount ── */
+  /* Reset create form className when selectedClass changes */
+  useEffect(() => {
+    setCreateForm(emptyForm(selectedClass));
+  }, [selectedClass]);
+
+  /* Fetch on mount */
   useEffect(() => {
     async function load() {
       try {
@@ -352,6 +351,11 @@ export default function ExamsSection({ loading: externalLoading }) {
     }
     load();
   }, []);
+
+  /* Filter list to selected class if one is active */
+  const visibleList = selectedClass
+    ? list.filter((e) => e.className === selectedClass || e.class === selectedClass)
+    : list;
 
   /* ── Create ── */
   async function handleCreate() {
@@ -377,7 +381,7 @@ export default function ExamsSection({ loading: externalLoading }) {
       setList((p) => [created, ...p]);
       setToast({ msg: "Exam created successfully!", type: "success" });
       setCreate(false);
-      setCreateForm(EMPTY_FORM);
+      setCreateForm(emptyForm(selectedClass));
       setCreateBulk("");
       setCreateTab("manual");
     } catch (err) {
@@ -389,18 +393,17 @@ export default function ExamsSection({ loading: externalLoading }) {
 
   /* ── Open edit modal ── */
   function openEdit(exam) {
-    // Normalise datetime-local format (strip seconds/Z)
     const toLocal = (iso) => iso ? iso.slice(0, 16) : "";
     setEditTarget(exam);
     setEditForm({
-      title:       exam.title,
-      subject:     exam.subject,
-      className:   exam.className,
-      term:        exam.term,
+      title:        exam.title,
+      subject:      exam.subject,
+      className:    exam.className,
+      term:         exam.term,
       durationMins: exam.durationMins,
-      startTime:   toLocal(exam.startTime),
-      endTime:     toLocal(exam.endTime),
-      questions:   exam.questions?.map((q) => ({
+      startTime:    toLocal(exam.startTime),
+      endTime:      toLocal(exam.endTime),
+      questions:    exam.questions?.map((q) => ({
         question:      q.question,
         options:       [...(q.options ?? ["", "", "", ""])],
         correctAnswer: q.correctAnswer ?? "",
@@ -423,14 +426,12 @@ export default function ExamsSection({ loading: externalLoading }) {
 
     setSaving(true);
     try {
-      // If published, unpublish first so backend allows the edit
       if (editTarget.isPublished) {
         await togglePublishExam(editTarget._id);
         setList((p) => p.map((x) =>
           x._id === editTarget._id ? { ...x, isPublished: false } : x
         ));
       }
-
       const payload = {
         ...editForm,
         durationMins: Number(editForm.durationMins),
@@ -451,7 +452,7 @@ export default function ExamsSection({ loading: externalLoading }) {
     }
   }
 
-  /* ── Repost (reset times + unpublish) ── */
+  /* ── Repost ── */
   async function handleRepost(exam) {
     openEdit(exam);
     setToast({ msg: "Update the dates then save to repost the exam.", type: "info" });
@@ -505,11 +506,6 @@ export default function ExamsSection({ loading: externalLoading }) {
 
   /* ── Derived ── */
   const now = new Date();
-  const upcomingCount = list.filter((e) => {
-    if (e.status) return e.status === "Upcoming";
-    return e.startTime && new Date(e.startTime) > now;
-  }).length;
-
   function examStatus(ex) {
     if (ex.status) return ex.status;
     const start = new Date(ex.startTime);
@@ -518,6 +514,8 @@ export default function ExamsSection({ loading: externalLoading }) {
     if (now >= start && now <= end) return "Ongoing";
     return "Completed";
   }
+
+  const upcomingCount = visibleList.filter((e) => examStatus(e) === "Upcoming").length;
 
   const PILL = {
     Upcoming:  { color: "#1a6ef5", bg: "#eff6ff" },
@@ -538,7 +536,11 @@ export default function ExamsSection({ loading: externalLoading }) {
         <div>
           <h2 className={styles.sectionTitle}>Exams</h2>
           <p className={styles.sectionSub}>
-            {isLoading ? "Loading…" : `${upcomingCount} upcoming`}
+            {isLoading
+              ? "Loading…"
+              : selectedClass
+                ? `${upcomingCount} upcoming · ${selectedClass}`
+                : `${upcomingCount} upcoming`}
           </p>
         </div>
         <button className={styles.primaryBtn} onClick={() => setCreate(true)}>
@@ -553,11 +555,14 @@ export default function ExamsSection({ loading: externalLoading }) {
         </div>
       ) : (
         <div className={styles.cardList}>
-          {list.length === 0 && (
-            <div className={styles.emptyState}><span>📝</span><p>No exams scheduled yet.</p></div>
+          {visibleList.length === 0 && (
+            <div className={styles.emptyState}>
+              <span>📝</span>
+              <p>{selectedClass ? `No exams for ${selectedClass} yet.` : "No exams scheduled yet."}</p>
+            </div>
           )}
 
-          {list.map((ex) => {
+          {visibleList.map((ex) => {
             const status   = examStatus(ex);
             const pill     = PILL[status] || PILL.Completed;
             const toggling = togglingId === ex._id;
@@ -565,8 +570,6 @@ export default function ExamsSection({ loading: externalLoading }) {
             return (
               <div key={ex._id} className={styles.itemCard}>
                 <div className={styles.itemCardHead}>
-
-                  {/* Left info */}
                   <div style={{ flex: 1 }}>
                     <p className={styles.itemTitle}>{ex.title}</p>
                     <p className={styles.itemMeta}>
@@ -588,7 +591,6 @@ export default function ExamsSection({ loading: externalLoading }) {
                     </p>
                   </div>
 
-                  {/* Right — status + publish toggle */}
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
                     <span style={{
                       padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600,
@@ -619,9 +621,7 @@ export default function ExamsSection({ loading: externalLoading }) {
                   </div>
                 </div>
 
-                {/* ── Action row ── */}
                 <div className={styles.itemActions}>
-                  {/* View Results — always visible */}
                   <button
                     className={styles.actionBtn}
                     onClick={() => handleViewResults(ex)}
@@ -629,16 +629,9 @@ export default function ExamsSection({ loading: externalLoading }) {
                   >
                     📊 Results
                   </button>
-
-                  {/* Edit */}
-                  <button
-                    className={styles.actionBtn}
-                    onClick={() => openEdit(ex)}
-                  >
+                  <button className={styles.actionBtn} onClick={() => openEdit(ex)}>
                     ✏️ Edit
                   </button>
-
-                  {/* Repost — only for Completed */}
                   {status === "Completed" && (
                     <button
                       className={styles.actionBtn}
@@ -648,7 +641,6 @@ export default function ExamsSection({ loading: externalLoading }) {
                       🔁 Repost
                     </button>
                   )}
-
                   <button
                     className={`${styles.actionBtn} ${styles.deleteBtn}`}
                     onClick={() => handleDelete(ex._id)}
@@ -662,13 +654,11 @@ export default function ExamsSection({ loading: externalLoading }) {
         </div>
       )}
 
-      {/* ════════════════════════════════
-          CREATE MODAL
-      ════════════════════════════════ */}
+      {/* ════════════ CREATE MODAL ════════════ */}
       {showCreate && (
         <Modal
-          title="Schedule Exam"
-          onClose={() => { setCreate(false); setCreateForm(EMPTY_FORM); setCreateBulk(""); setCreateTab("manual"); }}
+          title={`Schedule Exam${selectedClass ? ` — ${selectedClass}` : ""}`}
+          onClose={() => { setCreate(false); setCreateForm(emptyForm(selectedClass)); setCreateBulk(""); setCreateTab("manual"); }}
           footer={
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button className={styles.cancelBtn} onClick={() => setCreate(false)}>Cancel</button>
@@ -678,7 +668,7 @@ export default function ExamsSection({ loading: externalLoading }) {
             </div>
           }
         >
-          <TopFields form={createForm} setForm={setCreateForm} />
+          <TopFields form={createForm} setForm={setCreateForm} lockedClass={selectedClass} />
           <QuestionBuilder
             form={createForm} setForm={setCreateForm}
             tab={createTab} setTab={setCreateTab}
@@ -688,18 +678,14 @@ export default function ExamsSection({ loading: externalLoading }) {
         </Modal>
       )}
 
-      {/* ════════════════════════════════
-          EDIT MODAL
-      ════════════════════════════════ */}
+      {/* ════════════ EDIT MODAL ════════════ */}
       {editTarget && editForm && (
         <Modal
           title={`Edit Exam${editTarget.isPublished ? " (will unpublish to save)" : ""}`}
           onClose={() => { setEditTarget(null); setEditForm(null); }}
           footer={
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button className={styles.cancelBtn} onClick={() => { setEditTarget(null); setEditForm(null); }}>
-                Cancel
-              </button>
+              <button className={styles.cancelBtn} onClick={() => { setEditTarget(null); setEditForm(null); }}>Cancel</button>
               <button className={styles.primaryBtn} disabled={saving} onClick={handleSaveEdit}>
                 {saving ? "Saving…" : "Save Changes"}
               </button>
@@ -712,10 +698,10 @@ export default function ExamsSection({ loading: externalLoading }) {
               borderRadius: 8, padding: "10px 14px", marginBottom: 16,
               fontSize: 13, color: "#92400e",
             }}>
-              ⚠️ This exam is currently published. Saving will automatically unpublish it — remember to republish when ready.
+              ⚠️ This exam is currently published. Saving will automatically unpublish it.
             </div>
           )}
-          <TopFields form={editForm} setForm={setEditForm} />
+          <TopFields form={editForm} setForm={setEditForm} lockedClass={selectedClass} />
           <QuestionBuilder
             form={editForm} setForm={setEditForm}
             tab={editTab} setTab={setEditTab}
@@ -725,9 +711,7 @@ export default function ExamsSection({ loading: externalLoading }) {
         </Modal>
       )}
 
-      {/* ════════════════════════════════
-          RESULTS MODAL
-      ════════════════════════════════ */}
+      {/* ════════════ RESULTS MODAL ════════════ */}
       {resultsExam && (
         resultsLoading ? (
           <Modal title="Loading results…" onClose={() => setResultsExam(null)}>
@@ -749,8 +733,11 @@ export default function ExamsSection({ loading: externalLoading }) {
   );
 }
 
-/* ── Shared top-fields block (avoids duplication in both modals) ── */
-function TopFields({ form, setForm }) {
+/* ── Top-fields form block ─────────────────────────────────
+   lockedClass: if set, className is shown as a read-only
+   badge instead of a dropdown — no accidental mis-assignment.
+──────────────────────────────────────────────────────────── */
+function TopFields({ form, setForm, lockedClass }) {
   function setTop(field, value) { setForm((p) => ({ ...p, [field]: value })); }
   return (
     <>
@@ -758,7 +745,8 @@ function TopFields({ form, setForm }) {
         <label>Exam Title</label>
         <input
           placeholder="e.g. JSS2 Mathematics Exam - Graph & Probability"
-          value={form.title} onChange={(e) => setTop("title", e.target.value)}
+          value={form.title}
+          onChange={(e) => setTop("title", e.target.value)}
         />
       </div>
       <div className={styles.formRow}>
@@ -770,9 +758,27 @@ function TopFields({ form, setForm }) {
         </div>
         <div className={styles.formGroup}>
           <label>Class</label>
-          <select value={form.className} onChange={(e) => setTop("className", e.target.value)}>
-            {CLASSES.map((c) => <option key={c}>{c}</option>)}
-          </select>
+          {lockedClass ? (
+            /* read-only badge when teacher already selected a class */
+            <div style={{
+              padding: "8px 14px", borderRadius: 8,
+              background: "#f1f5f9", border: "1.5px solid #e2e8f0",
+              fontSize: 13, fontWeight: 600, color: "#1e293b",
+              display: "flex", alignItems: "center", gap: 6,
+            }}>
+              <span style={{
+                width: 8, height: 8, borderRadius: "50%", background: "#1a6ef5",
+              }} />
+              {lockedClass}
+              <span style={{ fontSize: 11, color: "#94a3b8", marginLeft: "auto" }}>
+                (from class selector)
+              </span>
+            </div>
+          ) : (
+            <select value={form.className} onChange={(e) => setTop("className", e.target.value)}>
+              {CLASSES.map((c) => <option key={c}>{c}</option>)}
+            </select>
+          )}
         </div>
       </div>
       <div className={styles.formRow}>

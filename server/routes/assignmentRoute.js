@@ -10,6 +10,7 @@ import {
   submitAssignment,
   getMySubmissions,
 } from "../controllers/assignmentController.js";
+import { upload } from "../middleware/upload.js";
 
 const router = Router();
 
@@ -22,7 +23,8 @@ router.delete("/:assignmentId", protect, authorise("teacher"), deleteAssignment)
 
 // ── Student routes ──────────────────────────────────────────────────────────
 router.get("/student",             protect, authorise("student"), getAssignmentsForStudent);
-router.post("/:assignmentId/submit", protect, authorise("student"), submitAssignment);
+router.post(  "/submit/:assignmentId",protect, authorise("student"), upload.single("file"), submitAssignment);
 router.get("/my-submissions", protect, authorise("student"), getMySubmissions);
 
 export default router;
+

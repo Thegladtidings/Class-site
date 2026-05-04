@@ -7,6 +7,7 @@ import Toast                      from "../../components/Toast.jsx";
 import StudentAssignments         from "./Assignments.jsx";
 import StudentExams               from "./Exams.jsx";
 import StudentProfile             from "./Profile.jsx";
+import Grades from "./Grades.jsx";
 import { useStudentData }         from "./UseStudentData.js";
 
 import styles from "../../css/Studentdashboard.module.css";
@@ -59,10 +60,10 @@ export default function StudentDashboard() {
       case "assignments":
         return <StudentAssignments />;
       case "grades":
-        return <GradesSection grades={gradeList} loading={isLoading} />;
+        return <Grades />;
       case "announcements":
         return <AnnouncementsSection announcements={announcementList} loading={isLoading} />;
-      case "profile":case "profile":
+      case "profile":
   return (
     <StudentProfile
       profile={profileData}
@@ -96,6 +97,7 @@ export default function StudentDashboard() {
         open={sidebarOpen}
         onClose={() => setSidebar(false)}
         navItems={NAV}
+        brandSub={"Student Portal"}
       />
       <div className={styles.mainArea}>
         <Header
