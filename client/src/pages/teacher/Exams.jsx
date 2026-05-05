@@ -4,30 +4,33 @@ import Toast from "../../components/Toast.jsx";
 import styles from "../../css/Sections.module.css";
 import {
   createExam, deleteExam, togglePublishExam,
-  getExams, getExamResults, updateExam,
+  getExams, getExamResults, updateExam,uploadQuestionImage
 } from "../api/teacherApi.js";
 
 const TERMS    = ["First Term", "Second Term", "Third Term"];
 const SUBJECTS = ["Mathematics", "Further Mathematics", "English", "Physics", "Chemistry", "Biology"];
 const CLASSES  = ["JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"];
 
-/* Build the empty form, pre-seeding className if the teacher already picked a class */
+/* ── Empty form — now includes questionsPerStudent ── */
 function emptyForm(selectedClass) {
   return {
-    title:       "",
-    subject:     SUBJECTS[0],
-    className:   selectedClass || CLASSES[0],
-    term:        TERMS[0],
-    durationMins: 60,
-    startTime:   "",
-    endTime:     "",
-    questions:   [{ question: "", options: ["", "", "", ""], correctAnswer: "" }],
+    title:               "",
+    subject:             SUBJECTS[0],
+    className:           selectedClass || CLASSES[0],
+    term:                TERMS[0],
+    durationMins:        60,
+    questionsPerStudent: "",   // NEW — blank = give all questions
+    startTime:           "",
+    endTime:             "",
+    questions:           [{ question: "", options: ["", "", "", ""], correctAnswer: "" }],
   };
 }
 
+// Update cloneQuestion
 function cloneQuestion() {
-  return { question: "", options: ["", "", "", ""], correctAnswer: "" };
+  return { question: "", options: ["", "", "", ""], correctAnswer: "", imageUrl: "" };
 }
+
 
 function parseBulkText(raw) {
   const blocks = raw.trim().split(/\n{2,}/);
@@ -48,8 +51,12 @@ function parseBulkText(raw) {
   return parsed;
 }
 
-/* ── Question Builder (unchanged logic) ──────────────────── */
+/* ── Question Builder ─────────────────────────────────────── */
+
 function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bulkError, setBulkErr }) {
+  // Track per-question upload state: { [qi]: "idle" | "uploading" | "error" }
+  const [uploadState, setUploadState] = useState({});
+
   function setQuestion(qi, field, value) {
     setForm((p) => {
       const qs = [...p.questions];
@@ -71,7 +78,27 @@ function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bu
   }
   function removeQuestion(qi) {
     setForm((p) => ({ ...p, questions: p.questions.filter((_, i) => i !== qi) }));
+    setUploadState((p) => { const n = { ...p }; delete n[qi]; return n; });
   }
+
+  async function handleImageUpload(qi, file) {
+    if (!file) return;
+    setUploadState((p) => ({ ...p, [qi]: "uploading" }));
+    try {
+      const res = await uploadQuestionImage(file);
+      const url = res?.data?.url;
+      setQuestion(qi, "imageUrl", url);
+      setUploadState((p) => ({ ...p, [qi]: "idle" }));
+    } catch {
+      setUploadState((p) => ({ ...p, [qi]: "error" }));
+    }
+  }
+
+  function removeImage(qi) {
+    setQuestion(qi, "imageUrl", "");
+    setUploadState((p) => ({ ...p, [qi]: "idle" }));
+  }
+
   function applyBulk() {
     const parsed = parseBulkText(bulkText);
     if (parsed.length === 0) {
@@ -79,12 +106,14 @@ function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bu
       return;
     }
     setBulkErr("");
-    setForm((p) => ({ ...p, questions: parsed }));
+    // Bulk paste won't have images — seed imageUrl as empty
+    setForm((p) => ({ ...p, questions: parsed.map((q) => ({ ...q, imageUrl: "" })) }));
     setTab("manual");
   }
 
   return (
     <div style={{ marginTop: 20 }}>
+      {/* ── Tab header — unchanged ── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <p style={{ fontWeight: 700, color: "#1e293b", fontSize: 15 }}>
           Questions ({form.questions.length})
@@ -105,6 +134,7 @@ function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bu
         </div>
       </div>
 
+      {/* ── Bulk tab — unchanged ── */}
       {tab === "bulk" && (
         <div style={{ marginBottom: 16 }}>
           <p style={{ fontSize: 12, color: "#64748b", marginBottom: 8, lineHeight: 1.6 }}>
@@ -114,7 +144,7 @@ function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bu
             background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8,
             padding: 12, fontSize: 11, color: "#475569", lineHeight: 1.8,
             marginBottom: 10, whiteSpace: "pre-wrap",
-          }}>{`1. What is 2 + 2?\nA) 3\nB) 4\nC) 5\nD) 6\nAnswer: B\n\n2. Capital of Nigeria?\nA) Lagos\nB) Ibadan\nC) Abuja\nD) Kano\nAnswer: C`}</pre>
+          }}>{`1. What is 2 + 2?\nA) 3\nB) 4\nC) 5\nD) 6\nAnswer: B`}</pre>
           <textarea
             rows={10} placeholder="Paste your questions here…" value={bulkText}
             onChange={(e) => setBulkText(e.target.value)}
@@ -135,65 +165,135 @@ function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bu
         </div>
       )}
 
+      {/* ── Manual tab ── */}
       {tab === "manual" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {form.questions.map((q, qi) => (
-            <div key={qi} style={{
-              background: "#f8fafc", border: "1.5px solid #e2e8f0",
-              borderRadius: 10, padding: 14,
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <p style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>Question {qi + 1}</p>
-                {form.questions.length > 1 && (
-                  <button type="button" onClick={() => removeQuestion(qi)} style={{
-                    background: "none", border: "none", color: "#ef4444",
-                    fontSize: 12, cursor: "pointer", fontWeight: 600,
-                  }}>✕ Remove</button>
-                )}
-              </div>
-              <textarea rows={2} placeholder="Enter question…" value={q.question}
-                onChange={(e) => setQuestion(qi, "question", e.target.value)}
-                style={{
-                  width: "100%", borderRadius: 8, border: "1.5px solid #e2e8f0",
-                  padding: 10, fontSize: 13, resize: "vertical",
-                  outline: "none", boxSizing: "border-box", marginBottom: 10,
-                }}
-              />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-                {["A", "B", "C", "D"].map((letter, oi) => (
-                  <div key={oi} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{
-                      width: 22, height: 22, borderRadius: "50%",
-                      background: "#1a6ef5", color: "#fff",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 11, fontWeight: 700, flexShrink: 0,
-                    }}>{letter}</span>
-                    <input placeholder={`Option ${letter}`} value={q.options[oi] || ""}
-                      onChange={(e) => setOption(qi, oi, e.target.value)}
-                      style={{
-                        flex: 1, borderRadius: 8, border: "1.5px solid #e2e8f0",
-                        padding: "7px 10px", fontSize: 13, outline: "none",
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#475569", whiteSpace: "nowrap" }}>
-                  ✅ Correct Answer:
-                </label>
-                <select value={q.correctAnswer}
-                  onChange={(e) => setQuestion(qi, "correctAnswer", e.target.value)}
-                  style={{ borderRadius: 8, border: "1.5px solid #e2e8f0", padding: "6px 10px", fontSize: 13, outline: "none" }}
-                >
-                  <option value="">Select…</option>
-                  {q.options.filter(Boolean).map((opt, i) => (
-                    <option key={i} value={opt}>{opt}</option>
+          {form.questions.map((q, qi) => {
+            const imgStatus = uploadState[qi] ?? "idle";
+            return (
+              <div key={qi} style={{
+                background: "#f8fafc", border: "1.5px solid #e2e8f0",
+                borderRadius: 10, padding: 14,
+              }}>
+                {/* Question header */}
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                  <p style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>Question {qi + 1}</p>
+                  {form.questions.length > 1 && (
+                    <button type="button" onClick={() => removeQuestion(qi)} style={{
+                      background: "none", border: "none", color: "#ef4444",
+                      fontSize: 12, cursor: "pointer", fontWeight: 600,
+                    }}>✕ Remove</button>
+                  )}
+                </div>
+
+                {/* Question text */}
+                <textarea rows={2} placeholder="Enter question…" value={q.question}
+                  onChange={(e) => setQuestion(qi, "question", e.target.value)}
+                  style={{
+                    width: "100%", borderRadius: 8, border: "1.5px solid #e2e8f0",
+                    padding: 10, fontSize: 13, resize: "vertical",
+                    outline: "none", boxSizing: "border-box", marginBottom: 10,
+                  }}
+                />
+
+                {/* ── Image section ── */}
+                <div style={{ marginBottom: 12 }}>
+                  {q.imageUrl ? (
+                    /* Image preview */
+                    <div style={{ position: "relative", display: "inline-block" }}>
+                      <img
+                        src={q.imageUrl}
+                        alt={`Question ${qi + 1}`}
+                        style={{
+                          maxWidth: "100%", maxHeight: 220,
+                          borderRadius: 8, border: "1.5px solid #e2e8f0",
+                          display: "block",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(qi)}
+                        style={{
+                          position: "absolute", top: 6, right: 6,
+                          background: "#ef4444", color: "#fff",
+                          border: "none", borderRadius: "50%",
+                          width: 24, height: 24, cursor: "pointer",
+                          fontWeight: 700, fontSize: 13,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+                        }}
+                      >✕</button>
+                    </div>
+                  ) : (
+                    /* Upload button */
+                    <label style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      padding: "7px 14px", borderRadius: 8,
+                      border: "1.5px dashed #cbd5e1",
+                      background: imgStatus === "uploading" ? "#f8fafc" : "#fff",
+                      color: imgStatus === "error" ? "#ef4444" : "#64748b",
+                      fontSize: 12, fontWeight: 600,
+                      cursor: imgStatus === "uploading" ? "not-allowed" : "pointer",
+                      transition: "all 0.2s",
+                    }}>
+                      {imgStatus === "uploading" ? (
+                        <>⏳ Uploading…</>
+                      ) : imgStatus === "error" ? (
+                        <>❌ Upload failed — try again</>
+                      ) : (
+                        <>🖼️ Add Image (optional)</>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: "none" }}
+                        disabled={imgStatus === "uploading"}
+                        onChange={(e) => handleImageUpload(qi, e.target.files[0])}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* Options grid — unchanged */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                  {["A", "B", "C", "D"].map((letter, oi) => (
+                    <div key={oi} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{
+                        width: 22, height: 22, borderRadius: "50%",
+                        background: "#1a6ef5", color: "#fff",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 11, fontWeight: 700, flexShrink: 0,
+                      }}>{letter}</span>
+                      <input placeholder={`Option ${letter}`} value={q.options[oi] || ""}
+                        onChange={(e) => setOption(qi, oi, e.target.value)}
+                        style={{
+                          flex: 1, borderRadius: 8, border: "1.5px solid #e2e8f0",
+                          padding: "7px 10px", fontSize: 13, outline: "none",
+                        }}
+                      />
+                    </div>
                   ))}
-                </select>
+                </div>
+
+                {/* Correct answer — unchanged */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "#475569", whiteSpace: "nowrap" }}>
+                    ✅ Correct Answer:
+                  </label>
+                  <select value={q.correctAnswer}
+                    onChange={(e) => setQuestion(qi, "correctAnswer", e.target.value)}
+                    style={{ borderRadius: 8, border: "1.5px solid #e2e8f0", padding: "6px 10px", fontSize: 13, outline: "none" }}
+                  >
+                    <option value="">Select…</option>
+                    {q.options.filter(Boolean).map((opt, i) => (
+                      <option key={i} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
+
           <button type="button" onClick={addQuestion} style={{
             padding: "9px 0", borderRadius: 8, border: "1.5px dashed #1a6ef5",
             background: "#eff6ff", color: "#1a6ef5", fontWeight: 600,
@@ -205,7 +305,7 @@ function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bu
   );
 }
 
-/* ── Results Modal (unchanged) ──────────────────────────────── */
+/* ── Results Modal ────────────────────────────────────────── */
 function ResultsModal({ exam, results, onClose }) {
   const avg    = results.length
     ? Math.round(results.reduce((s, r) => s + (r.percentage ?? 0), 0) / results.length) : 0;
@@ -299,23 +399,18 @@ function ResultsModal({ exam, results, onClose }) {
 
 /* ════════════════════════════════════════════════
    MAIN COMPONENT
-   NEW PROP: selectedClass — the class the teacher picked
-   in the dashboard class selector. Pre-seeds className
-   in create/edit forms and filters the exam list.
 ════════════════════════════════════════════════ */
 export default function ExamsSection({ loading: externalLoading, selectedClass }) {
-  const [list, setList]           = useState([]);
-  const [fetching, setFetching]   = useState(true);
+  const [list, setList]             = useState([]);
+  const [fetching, setFetching]     = useState(true);
 
-  // Create modal
-  const [showCreate, setCreate]   = useState(false);
+  const [showCreate, setCreate]     = useState(false);
   const [createForm, setCreateForm] = useState(() => emptyForm(selectedClass));
-  const [createTab, setCreateTab] = useState("manual");
+  const [createTab, setCreateTab]   = useState("manual");
   const [createBulk, setCreateBulk] = useState("");
   const [createBulkErr, setCreateBulkErr] = useState("");
-  const [submitting, setSub]      = useState(false);
+  const [submitting, setSub]        = useState(false);
 
-  // Edit modal
   const [editTarget, setEditTarget] = useState(null);
   const [editForm, setEditForm]     = useState(null);
   const [editTab, setEditTab]       = useState("manual");
@@ -323,20 +418,15 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
   const [editBulkErr, setEditBulkErr] = useState("");
   const [saving, setSaving]         = useState(false);
 
-  // Results modal
   const [resultsExam, setResultsExam]   = useState(null);
   const [resultsData, setResultsData]   = useState([]);
   const [resultsLoading, setResultsLoad] = useState(false);
 
-  const [toast, setToast]   = useState(null);
+  const [toast, setToast]     = useState(null);
   const [togglingId, setTogId] = useState(null);
 
-  /* Reset create form className when selectedClass changes */
-  useEffect(() => {
-    setCreateForm(emptyForm(selectedClass));
-  }, [selectedClass]);
+  useEffect(() => { setCreateForm(emptyForm(selectedClass)); }, [selectedClass]);
 
-  /* Fetch on mount */
   useEffect(() => {
     async function load() {
       try {
@@ -352,32 +442,52 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
     load();
   }, []);
 
-  /* Filter list to selected class if one is active */
   const visibleList = selectedClass
     ? list.filter((e) => e.className === selectedClass || e.class === selectedClass)
     : list;
 
-  /* ── Create ── */
-  async function handleCreate() {
-    if (!createForm.title.trim())  return setToast({ msg: "Please enter an exam title.", type: "error" });
-    if (!createForm.startTime)     return setToast({ msg: "Please set a start time.", type: "error" });
-    if (!createForm.endTime)       return setToast({ msg: "Please set an end time.", type: "error" });
-    const emptyQ = createForm.questions.some(
+  /* ── Validation helper ── */
+  function validateForm(form) {
+    if (!form.title.trim())  { setToast({ msg: "Please enter an exam title.", type: "error" }); return false; }
+    if (!form.startTime)     { setToast({ msg: "Please set a start time.", type: "error" }); return false; }
+    if (!form.endTime)       { setToast({ msg: "Please set an end time.", type: "error" }); return false; }
+
+    const qps = Number(form.questionsPerStudent);
+    if (form.questionsPerStudent !== "" && (isNaN(qps) || qps < 1)) {
+      setToast({ msg: "Questions per student must be a positive number.", type: "error" });
+      return false;
+    }
+    if (form.questionsPerStudent !== "" && qps > form.questions.length) {
+      setToast({ msg: `Questions per student (${qps}) cannot exceed your pool size (${form.questions.length}).`, type: "error" });
+      return false;
+    }
+
+    const emptyQ = form.questions.some(
       (q) => !q.question.trim() || q.options.some((o) => !o.trim()) || !q.correctAnswer.trim()
     );
-    if (emptyQ) return setToast({ msg: "Fill in all questions, options, and correct answers.", type: "error" });
+    if (emptyQ) { setToast({ msg: "Fill in all questions, options, and correct answers.", type: "error" }); return false; }
 
+    return true;
+  }
+
+  /* ── Build payload ── */
+  function buildPayload(form) {
+  return {
+    ...form,
+    durationMins:        Number(form.durationMins),
+    questionsPerStudent: form.questionsPerStudent !== "" ? Number(form.questionsPerStudent) : null,
+    questions:           form.questions.map(({ question, options, correctAnswer, imageUrl }) =>
+                           ({ question, options, correctAnswer, imageUrl: imageUrl || null })
+                         ),
+  };
+}
+  /* ── Create ── */
+  async function handleCreate() {
+    if (!validateForm(createForm)) return;
     setSub(true);
     try {
-      const payload = {
-        ...createForm,
-        durationMins: Number(createForm.durationMins),
-        questions: createForm.questions.map(({ question, options, correctAnswer }) =>
-          ({ question, options, correctAnswer })
-        ),
-      };
-      const res     = await createExam(payload);
-      const created = res?.data?.exam ?? { _id: `e${Date.now()}`, ...payload, isPublished: false };
+      const res     = await createExam(buildPayload(createForm));
+      const created = res?.data?.exam ?? { _id: `e${Date.now()}`, ...buildPayload(createForm), isPublished: false };
       setList((p) => [created, ...p]);
       setToast({ msg: "Exam created successfully!", type: "success" });
       setCreate(false);
@@ -396,14 +506,15 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
     const toLocal = (iso) => iso ? iso.slice(0, 16) : "";
     setEditTarget(exam);
     setEditForm({
-      title:        exam.title,
-      subject:      exam.subject,
-      className:    exam.className,
-      term:         exam.term,
-      durationMins: exam.durationMins,
-      startTime:    toLocal(exam.startTime),
-      endTime:      toLocal(exam.endTime),
-      questions:    exam.questions?.map((q) => ({
+      title:               exam.title,
+      subject:             exam.subject,
+      className:           exam.className,
+      term:                exam.term,
+      durationMins:        exam.durationMins,
+      questionsPerStudent: exam.questionsPerStudent ?? "",   // NEW
+      startTime:           toLocal(exam.startTime),
+      endTime:             toLocal(exam.endTime),
+      questions:           exam.questions?.map((q) => ({
         question:      q.question,
         options:       [...(q.options ?? ["", "", "", ""])],
         correctAnswer: q.correctAnswer ?? "",
@@ -416,31 +527,15 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
 
   /* ── Save edit ── */
   async function handleSaveEdit() {
-    if (!editForm.title.trim())  return setToast({ msg: "Please enter an exam title.", type: "error" });
-    if (!editForm.startTime)     return setToast({ msg: "Please set a start time.", type: "error" });
-    if (!editForm.endTime)       return setToast({ msg: "Please set an end time.", type: "error" });
-    const emptyQ = editForm.questions.some(
-      (q) => !q.question.trim() || q.options.some((o) => !o.trim()) || !q.correctAnswer.trim()
-    );
-    if (emptyQ) return setToast({ msg: "Fill in all questions, options, and correct answers.", type: "error" });
-
+    if (!validateForm(editForm)) return;
     setSaving(true);
     try {
       if (editTarget.isPublished) {
         await togglePublishExam(editTarget._id);
-        setList((p) => p.map((x) =>
-          x._id === editTarget._id ? { ...x, isPublished: false } : x
-        ));
+        setList((p) => p.map((x) => x._id === editTarget._id ? { ...x, isPublished: false } : x));
       }
-      const payload = {
-        ...editForm,
-        durationMins: Number(editForm.durationMins),
-        questions: editForm.questions.map(({ question, options, correctAnswer }) =>
-          ({ question, options, correctAnswer })
-        ),
-      };
-      const res     = await updateExam(editTarget._id, payload);
-      const updated = res?.data?.exam ?? { ...editTarget, ...payload, isPublished: false };
+      const res     = await updateExam(editTarget._id, buildPayload(editForm));
+      const updated = res?.data?.exam ?? { ...editTarget, ...buildPayload(editForm), isPublished: false };
       setList((p) => p.map((x) => x._id === editTarget._id ? updated : x));
       setToast({ msg: "Exam updated! It has been unpublished — republish when ready.", type: "success" });
       setEditTarget(null);
@@ -465,9 +560,7 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
       const res     = await togglePublishExam(exam._id);
       const updated = res?.data?.exam;
       setList((p) => p.map((x) =>
-        x._id === exam._id
-          ? { ...x, isPublished: updated?.isPublished ?? !x.isPublished }
-          : x
+        x._id === exam._id ? { ...x, isPublished: updated?.isPublished ?? !x.isPublished } : x
       ));
       setToast({
         msg:  updated?.isPublished ? "Exam published!" : "Exam unpublished.",
@@ -486,7 +579,7 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
     setResultsData([]);
     setResultsLoad(true);
     try {
-      const res  = await getExamResults(exam._id);
+      const res = await getExamResults(exam._id);
       setResultsData(res?.data?.results ?? res?.results ?? []);
     } catch {
       setToast({ msg: "Could not load results.", type: "error" });
@@ -504,30 +597,26 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
     setToast({ msg: "Exam deleted.", type: "info" });
   }
 
-  /* ── Derived ── */
+  /* ── Status helpers ── */
   const now = new Date();
   function examStatus(ex) {
     if (ex.status) return ex.status;
     const start = new Date(ex.startTime);
     const end   = new Date(ex.endTime);
-    if (now < start)               return "Upcoming";
+    if (now < start)                return "Upcoming";
     if (now >= start && now <= end) return "Ongoing";
     return "Completed";
   }
 
   const upcomingCount = visibleList.filter((e) => examStatus(e) === "Upcoming").length;
-
   const PILL = {
     Upcoming:  { color: "#1a6ef5", bg: "#eff6ff" },
     Ongoing:   { color: "#f59e0b", bg: "#fffbeb" },
     Completed: { color: "#6b7280", bg: "#f3f4f6" },
   };
-
   const isLoading = fetching || externalLoading;
 
-  /* ════════════════════════════════
-     RENDER
-  ════════════════════════════════ */
+  /* ════════ RENDER ════════ */
   return (
     <div className={styles.section}>
 
@@ -587,7 +676,10 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
                         ? new Date(ex.endTime).toLocaleString("en-US", { hour: "2-digit", minute: "2-digit" })
                         : "—"}
                       &nbsp;·&nbsp;{ex.durationMins} mins
-                      &nbsp;·&nbsp;{ex.questions?.length ?? 0} questions
+                      &nbsp;·&nbsp;{ex.questions?.length ?? 0} Qs in pool
+                      {ex.questionsPerStudent
+                        ? <>&nbsp;·&nbsp;<strong style={{ color: "#1a6ef5" }}>{ex.questionsPerStudent} per student</strong></>
+                        : null}
                     </p>
                   </div>
 
@@ -654,7 +746,7 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
         </div>
       )}
 
-      {/* ════════════ CREATE MODAL ════════════ */}
+      {/* ════════ CREATE MODAL ════════ */}
       {showCreate && (
         <Modal
           title={`Schedule Exam${selectedClass ? ` — ${selectedClass}` : ""}`}
@@ -678,7 +770,7 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
         </Modal>
       )}
 
-      {/* ════════════ EDIT MODAL ════════════ */}
+      {/* ════════ EDIT MODAL ════════ */}
       {editTarget && editForm && (
         <Modal
           title={`Edit Exam${editTarget.isPublished ? " (will unpublish to save)" : ""}`}
@@ -711,7 +803,7 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
         </Modal>
       )}
 
-      {/* ════════════ RESULTS MODAL ════════════ */}
+      {/* ════════ RESULTS MODAL ════════ */}
       {resultsExam && (
         resultsLoading ? (
           <Modal title="Loading results…" onClose={() => setResultsExam(null)}>
@@ -733,12 +825,10 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
   );
 }
 
-/* ── Top-fields form block ─────────────────────────────────
-   lockedClass: if set, className is shown as a read-only
-   badge instead of a dropdown — no accidental mis-assignment.
-──────────────────────────────────────────────────────────── */
+/* ── TopFields — now includes Questions Per Student field ─── */
 function TopFields({ form, setForm, lockedClass }) {
   function setTop(field, value) { setForm((p) => ({ ...p, [field]: value })); }
+
   return (
     <>
       <div className={styles.formGroup}>
@@ -749,6 +839,7 @@ function TopFields({ form, setForm, lockedClass }) {
           onChange={(e) => setTop("title", e.target.value)}
         />
       </div>
+
       <div className={styles.formRow}>
         <div className={styles.formGroup}>
           <label>Subject</label>
@@ -759,20 +850,15 @@ function TopFields({ form, setForm, lockedClass }) {
         <div className={styles.formGroup}>
           <label>Class</label>
           {lockedClass ? (
-            /* read-only badge when teacher already selected a class */
             <div style={{
               padding: "8px 14px", borderRadius: 8,
               background: "#f1f5f9", border: "1.5px solid #e2e8f0",
               fontSize: 13, fontWeight: 600, color: "#1e293b",
               display: "flex", alignItems: "center", gap: 6,
             }}>
-              <span style={{
-                width: 8, height: 8, borderRadius: "50%", background: "#1a6ef5",
-              }} />
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#1a6ef5" }} />
               {lockedClass}
-              <span style={{ fontSize: 11, color: "#94a3b8", marginLeft: "auto" }}>
-                (from class selector)
-              </span>
+              <span style={{ fontSize: 11, color: "#94a3b8", marginLeft: "auto" }}>(from class selector)</span>
             </div>
           ) : (
             <select value={form.className} onChange={(e) => setTop("className", e.target.value)}>
@@ -781,6 +867,7 @@ function TopFields({ form, setForm, lockedClass }) {
           )}
         </div>
       </div>
+
       <div className={styles.formRow}>
         <div className={styles.formGroup}>
           <label>Term</label>
@@ -794,6 +881,28 @@ function TopFields({ form, setForm, lockedClass }) {
             onChange={(e) => setTop("durationMins", e.target.value)} />
         </div>
       </div>
+
+      {/* ── NEW: Questions per student ── */}
+      <div className={styles.formGroup}>
+        <label>Questions Per Student</label>
+        <input
+          type="number"
+          min={1}
+          max={form.questions?.length || 999}
+          placeholder={`Leave blank to give all ${form.questions?.length ?? 0} questions`}
+          value={form.questionsPerStudent}
+          onChange={(e) => setTop("questionsPerStudent", e.target.value)}
+        />
+        <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+          Each student gets this many questions randomly picked from your pool, with options shuffled.
+          {form.questionsPerStudent && Number(form.questionsPerStudent) < form.questions?.length
+            ? <strong style={{ color: "#1a6ef5" }}>
+                {` Pool: ${form.questions.length} · Per student: ${form.questionsPerStudent}`}
+              </strong>
+            : null}
+        </p>
+      </div>
+
       <div className={styles.formRow}>
         <div className={styles.formGroup}>
           <label>Start Time</label>

@@ -5,7 +5,8 @@ const { Schema } = mongoose;
 const questionSchema = new Schema({
   question:      { type: String, required: true },
   options:       [{ type: String, required: true }],   // array of 4 options e.g. ["A. ...", "B. ..."]
-  correctAnswer: { type: String, required: true },      // must match one of the options exactly
+  correctAnswer: { type: String, required: true },  
+  imageUrl:      { type: String, default: null }, // NEW — Cloudinary URL
   mark:          { type: Number, default: 1 },          // marks awarded for correct answer
 });
 
@@ -20,7 +21,9 @@ const examSchema = new mongoose.Schema({
   createdBy:   { type: Schema.Types.ObjectId, ref: "Teacher", required: true },
   isPublished: { type: Boolean, default: false },         // teacher publishes when ready
   startTime:   { type: Date, default: null },             // optional scheduled start
-  endTime:     { type: Date, default: null },             // optional deadline
+  endTime:     { type: Date, default: null },  
+  questionsPerStudent: { type: Number, default: null },
+           // optional deadline
 }, { timestamps: true });
 
 // Auto-compute totalMarks before save

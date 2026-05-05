@@ -11,11 +11,18 @@ import {
   startExam,
   submitExam,
   getMyExamResults,
+  uploadQuestionImage
 } from "../controllers/examController.js";
+// In your routes file
+import multer from "multer";
 
+
+// Auth middleware keeps this teacher-only
 const router = Router();
 
+const upload = multer({ storage: multer.memoryStorage() });
 // ── Teacher routes ──────────────────────────────────────────────────────────
+router.post("/teacher/upload-image", protect, upload.single("image"), uploadQuestionImage);
 router.post("/teacher",                        protect, authorise("teacher"), createExam);
 router.get("/teacher/my",                       protect, authorise("teacher"), getTeacherExams);
 router.patch("/teacher/:examId/publish",        protect, authorise("teacher"), togglePublishExam);

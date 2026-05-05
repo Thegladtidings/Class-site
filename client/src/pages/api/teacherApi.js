@@ -16,3 +16,12 @@ export const deleteExam      = (id)     => axiosInstance.delete(`/api/exams/teac
 export const togglePublishExam     = (id)     => axiosInstance.patch(`/api/exams/teacher/${id}/publish`);
 export const updateExam      = (id, d) => axiosInstance.patch(`/api/exams/teacher/${id}`, d);
 export const getExamResults   = (id)     => axiosInstance.get(`/api/exams/teacher/${id}/results`);
+export const uploadQuestionImage = (file) => {
+  const formData = new FormData();
+  formData.append("image", file);
+  return axiosInstance.post("/api/exams/teacher/upload-image", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+};

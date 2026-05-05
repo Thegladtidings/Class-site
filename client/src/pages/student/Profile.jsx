@@ -13,7 +13,7 @@ function getInitials(name = '') {
 
 export default function StudentProfile({ profile, onUpdate }) {
   const fileInputRef    = useRef(null);
-  const selectedFileRef = useRef(null);   // holds the actual File object
+  const selectedFileRef = useRef(null);
 
   const [student,      setStudent]      = useState(profile || null);
   const [editing,      setEditing]      = useState(false);
@@ -42,8 +42,6 @@ export default function StudentProfile({ profile, onUpdate }) {
     }
 
     selectedFileRef.current = file;
-
-    /* Show a local preview immediately — the real URL comes back from Cloudinary */
     const reader = new FileReader();
     reader.onloadend = () => setImagePreview(reader.result);
     reader.readAsDataURL(file);
@@ -65,19 +63,12 @@ export default function StudentProfile({ profile, onUpdate }) {
 
     setSaving(true);
     try {
-      /*
-        Send as FormData so multer can read the file.
-        axiosInstance will auto-remove Content-Type so the
-        browser sets the correct multipart boundary.
-      */
       const fd = new FormData();
+      if (emailChanged) fd.append('email',        form.email);
+      if (imageChanged) fd.append('profileImage',  selectedFileRef.current);
 
-      if (emailChanged)  fd.append('email',        form.email);
-      if (imageChanged)  fd.append('profileImage',  selectedFileRef.current);
+      const { data } = await axiosInstance.patch('/api/students/profile-update', fd);
 
-      const { data } = await axiosInstance.put('/api/students/profile', fd);
-
-      /* Update local state with what the server saved */
       setStudent(data.student);
       setImagePreview(data.student.profileImage || imagePreview);
       localStorage.setItem('user', JSON.stringify(data.student));
@@ -87,7 +78,6 @@ export default function StudentProfile({ profile, onUpdate }) {
 
       setSaveSuccess('Profile updated successfully.');
       setEditing(false);
-
       if (onUpdate) onUpdate(data.student);
     } catch (err) {
       const msg =
@@ -110,7 +100,7 @@ export default function StudentProfile({ profile, onUpdate }) {
     setEditing(false);
   }
 
-  /* ── Loading state ── */
+  /* ── Loading ── */
   if (!student) {
     return (
       <div className="sp-root">
@@ -123,31 +113,50 @@ export default function StudentProfile({ profile, onUpdate }) {
     <div className="sp-root">
       <div className="sp-page">
 
-        {/* ── Avatar / Hero ── */}
-        <div className="sp-hero">
-          <div
-            className={`sp-avatar ${editing ? 'sp-avatar--editable' : ''}`}
-            onClick={() => editing && fileInputRef.current?.click()}
-            title={editing ? 'Click to change photo' : ''}
-          >
-            {imagePreview ? (
-              <img src={imagePreview} alt="Profile" className="sp-avatar__img" />
-            ) : (
-              <span className="sp-avatar__initials">
-                {getInitials(student.name)}
-              </span>
-            )}
+        {/* ── Hero Card ── */}
+        <div className="sp-hero-card">
+          <div className="sp-hero-dots" />
 
-            {/* Camera overlay hint when editing */}
-            {editing && (
-              <div className="sp-avatar__overlay">
-                <span style={{ fontSize: 22 }}>📷</span>
-                <span style={{ fontSize: 11, marginTop: 2 }}>Change</span>
+          {/* Avatar */}
+          <div className="sp-avatar-wrap">
+            <div
+              className={`sp-avatar ${editing ? 'sp-avatar--editable' : ''}`}
+              onClick={() => editing && fileInputRef.current?.click()}
+              title={editing ? 'Click to change photo' : ''}
+            >
+              {imagePreview ? (
+                <img src={imagePreview} alt="Profile" />
+              ) : (
+                <span className="sp-avatar__initials">
+                  {getInitials(student.name)}
+                </span>
+              )}
+
+              {editing && (
+                <div className="sp-avatar__overlay">
+                  <span style={{ fontSize: 22 }}>📷</span>
+                  <span>Change</span>
+                </div>
+              )}
+            </div>
+
+            {/* Camera badge shown when not in edit mode */}
+            {!editing && (
+              <div
+                className="sp-camera-badge"
+                onClick={() => {
+                  setSaveError('');
+                  setSaveSuccess('');
+                  setEditing(true);
+                }}
+                title="Edit profile"
+                style={{ cursor: 'pointer' }}
+              >
+                ✏️
               </div>
             )}
           </div>
 
-          {/* Hidden file input */}
           <input
             ref={fileInputRef}
             type="file"
@@ -156,11 +165,12 @@ export default function StudentProfile({ profile, onUpdate }) {
             onChange={handleImageChange}
           />
 
-          <div className="sp-hero__info">
-            <h1 className="sp-hero__name">{student.name}</h1>
-            <p style={{ color: '#64748b', fontSize: 14, margin: 0 }}>
-              {student.className}
-            </p>
+          <h1 className="sp-hero-name">{student.name}</h1>
+          <p className="sp-hero-class">{student.className}</p>
+
+          <div className="sp-role-chip">
+            <span className="sp-role-chip-dot" />
+            Student
           </div>
         </div>
 
@@ -172,58 +182,54 @@ export default function StudentProfile({ profile, onUpdate }) {
           <div className="sp-alert sp-alert--error">⚠ {saveError}</div>
         )}
 
-        {/* ── Fields ── */}
+        {/* ── Fields Card ── */}
+        <div className="sp-fields-card">
 
-        {/* Name — always read-only */}
-        <div className="sp-field">
-          <label className="sp-field__label">Full Name</label>
-          <div className="sp-field__wrap">
-            <span className="sp-field__value">{student.name}</span>
-            <span style={{
-              fontSize: 10, color: '#94a3b8', marginLeft: 8,
-              background: '#f1f5f9', padding: '2px 8px', borderRadius: 99,
-            }}>
-              Cannot be changed
-            </span>
+          {/* Full Name — read-only */}
+          <div className="sp-field">
+            <label className="sp-field__label">Full Name</label>
+            <div className="sp-field__row">
+              <span className="sp-field__value">{student.name}</span>
+              <span className="sp-field__badge">Cannot be changed</span>
+            </div>
           </div>
-        </div>
 
-        {/* Email */}
-        <div className="sp-field">
-          <label className="sp-field__label">Email</label>
-          <div className="sp-field__wrap">
+          {/* Email */}
+          <div className="sp-field">
+            <label className="sp-field__label">Email Address</label>
             {editing ? (
               <input
                 className="sp-field__input"
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="Enter your email"
               />
             ) : (
               <span className="sp-field__value">{student.email}</span>
             )}
           </div>
-        </div>
 
-        {/* Class — read-only */}
-        {student.className && (
-          <div className="sp-field">
-            <label className="sp-field__label">Class</label>
-            <div className="sp-field__wrap">
+          {/* Class — read-only */}
+          {student.className && (
+            <div className="sp-field">
+              <label className="sp-field__label">Class</label>
               <span className="sp-field__value">{student.className}</span>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Student ID — read-only */}
-        {student.studentId && (
-          <div className="sp-field">
-            <label className="sp-field__label">Student ID</label>
-            <div className="sp-field__wrap">
-              <span className="sp-field__value">{student.studentId}</span>
+          {/* Student ID — read-only */}
+          {student.studentId && (
+            <div className="sp-field">
+              <label className="sp-field__label">Student ID</label>
+              <div className="sp-field__row">
+                <span className="sp-field__value">{student.studentId}</span>
+                <span className="sp-field__badge">Read only</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+        </div>
 
         {/* ── Actions ── */}
         <div className="sp-actions">
@@ -234,7 +240,7 @@ export default function StudentProfile({ profile, onUpdate }) {
                 onClick={handleSave}
                 disabled={saving}
               >
-                {saving ? 'Uploading…' : 'Save Changes'}
+                {saving ? '⏳ Uploading…' : '✔ Save Changes'}
               </button>
               <button
                 className="sp-btn sp-btn--cancel"
