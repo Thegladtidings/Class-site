@@ -35,10 +35,29 @@ export const studentLogin = async (req, res) => {
 // REGISTER
 export const registerStudent = async (req, res) => {
   try {
-    const { name, email, password, className, gender, studentId } = req.body;
+    const { name, email, password, className, gender } = req.body;
 
     const existingStudent = await Student.findOne({ email });
     if (existingStudent) return res.status(400).json({ message: "Email already in use" });
+
+    // ── Generate a unique Student ID ──────────────────────────────
+    const generateStudentId = () => {
+      const year    = new Date().getFullYear().toString().slice(-2); // e.g. "25"
+      const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";                   // no I/O to avoid confusion
+      const prefix  = letters[Math.floor(Math.random() * letters.length)] +
+                      letters[Math.floor(Math.random() * letters.length)];
+      const digits  = String(Math.floor(Math.random() * 9000) + 1000); // 1000–9999
+      return `STU-${year}${prefix}${digits}`;                          // e.g. STU-25KR4372
+    };
+
+    // Retry until we find an ID not already in the database
+    let studentId;
+    let collision;
+    do {
+      studentId = generateStudentId();
+      collision = await Student.findOne({ studentId });
+    } while (collision);
+    // ─────────────────────────────────────────────────────────────
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
@@ -53,7 +72,6 @@ export const registerStudent = async (req, res) => {
     res.status(500).json({ message: "Error registering student", error: err.message });
   }
 };
-
 // UPDATE PROFILE (student updates their own profile)
 // NOTE: `name` is intentionally excluded — it cannot be changed after registration.
 export const updateStudentProfile = async (req, res) => {

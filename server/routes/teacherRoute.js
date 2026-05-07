@@ -5,11 +5,12 @@ import {
   teacherLogin,
   getTeacherProfile,
   getStudentById,
-  updateTeacherProfile
+  updateTeacherProfile,
+  bulkRegisterStudents,
 } from "../controllers/teacherController.js";
 
 const router = Router();
-
+router.post("/bulk-register", bulkRegisterStudents);
 router.post("/register", registerTeacher);
 router.post("/login", teacherLogin);
 router.get("/profile", protect, authorise("teacher"), getTeacherProfile);

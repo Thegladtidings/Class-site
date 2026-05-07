@@ -8,7 +8,7 @@ const studentSchema = new mongoose.Schema({
   className: { type: String, required: true },
   profileImage: { type: String, default: null }, // Cloudinary/S3 URL
   studentId: { type: String, unique: true, sparse: true }, // e.g. "JSS2-001"
-  gender: { type: String, enum: ['male', 'female'] },
+  gender: { type: String, enum: ['Male', 'Female'] },
   isActive: { type: Boolean, default: true },
 }, { timestamps: true });
 

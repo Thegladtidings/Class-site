@@ -1,4 +1,5 @@
 import Teacher from "../models/teacher.js";
+import Student from "../models/student.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -24,7 +25,101 @@ export const registerTeacher = async (req, res) => {
     res.status(500).json({ message: "Error registering teacher", error: err.message });
   }
 };
+export const bulkRegisterStudents = async (req, res) => {
+  try {
+    const students = req.body;
 
+    if (!Array.isArray(students) || students.length === 0) {
+      return res.status(400).json({
+        message: "Please provide an array of students",
+      });
+    }
+
+    // ── Shared ID generator (same algorithm as registerStudent) ───
+    const generateStudentId = () => {
+      const year    = new Date().getFullYear().toString().slice(-2);
+      const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // no I/O to avoid confusion
+      const prefix  = letters[Math.floor(Math.random() * letters.length)] +
+                      letters[Math.floor(Math.random() * letters.length)];
+      const digits  = String(Math.floor(Math.random() * 9000) + 1000); // 1000–9999
+      return `STU-${year}${prefix}${digits}`;                          // e.g. STU-25KR4372
+    };
+
+    // Track IDs used within this batch to prevent intra-batch collisions
+    const usedInBatch = new Set();
+
+    const getUniqueId = async () => {
+      let id;
+      let collision;
+      do {
+        id = generateStudentId();
+        // Must be unused both in this batch and in the database
+        if (usedInBatch.has(id)) continue;
+        collision = await Student.findOne({ studentId: id });
+      } while (collision);
+      usedInBatch.add(id);
+      return id;
+    };
+    // ─────────────────────────────────────────────────────────────
+
+    const formattedStudents = [];
+    const skippedEmails     = [];
+
+    for (const student of students) {
+      const { name, email, password, className, gender } = student;
+
+      // Skip duplicate emails
+      const existingStudent = await Student.findOne({ email });
+      if (existingStudent) {
+        skippedEmails.push(email);
+        continue;
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 12);
+      const studentId      = await getUniqueId();
+
+      formattedStudents.push({
+        name,
+        email,
+        password: hashedPassword,
+        className,
+        gender,
+        studentId,
+      });
+    }
+
+    if (formattedStudents.length === 0) {
+      return res.status(400).json({
+        message: "No new students to register. All emails already exist.",
+        skippedEmails,
+      });
+    }
+
+    // Insert all valid students
+    const savedStudents = await Student.insertMany(formattedStudents);
+
+    // Strip passwords from response
+    const studentsWithoutPasswords = savedStudents.map((student) => {
+      const { password, ...studentData } = student.toObject();
+      return studentData;
+    });
+
+    res.status(201).json({
+      message: `${studentsWithoutPasswords.length} student${studentsWithoutPasswords.length !== 1 ? "s" : ""} registered successfully`,
+      students: studentsWithoutPasswords,
+      ...(skippedEmails.length > 0 && {
+        skipped: `${skippedEmails.length} email${skippedEmails.length !== 1 ? "s" : ""} already in use`,
+        skippedEmails,
+      }),
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      message: "Error registering students",
+      error: err.message,
+    });
+  }
+};
 // LOGIN TEACHER
 export const teacherLogin = async (req, res) => {
   try {
