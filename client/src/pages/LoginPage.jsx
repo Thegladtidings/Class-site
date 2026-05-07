@@ -363,16 +363,9 @@ export default function LoginPage() {
         {/* Header */}
         <header className="lp-header">
           <div className="lp-header__emblem" aria-hidden="true">
-            <svg viewBox="0 0 48 48" width="42" height="42" fill="none">
-              <polygon
-                points="24,2 28,18 44,14 34,26 44,38 28,34 24,46 20,34 4,38 14,26 4,14 20,18"
-                stroke="#d4af37" strokeWidth="1.2" fill="rgba(212,175,55,0.08)"
-              />
-              <circle cx="24" cy="24" r="7" stroke="#d4af37" strokeWidth="1" fill="none" />
-            </svg>
           </div>
-          <h1 className="lp-header__title">JSS 2 Class Portal</h1>
-          <p className="lp-header__sub">Examination Management System</p>
+          <h1 className="lp-header__title">Class Site</h1>
+          <p className="lp-header__sub">Assessment Management System</p>
           <div className="lp-header__rule" aria-hidden="true" />
         </header>
 

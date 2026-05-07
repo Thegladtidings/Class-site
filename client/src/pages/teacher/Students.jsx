@@ -7,8 +7,35 @@ function initials(name = "") {
   return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 }
 
+/**
+ * Normalize class name so "JSS1" and "JSS 1" are treated as identical.
+ * Inserts a space between the letter prefix and the digit suffix when missing.
+ * e.g.  "JSS1" → "JSS 1"   "SS2" → "SS 2"   "JSS 2" → "JSS 2" (unchanged)
+ */
+function normalizeClass(raw) {
+  if (!raw) return "—";
+  const str = String(raw).trim();
+  if (!str || str === "—") return "—";
+  // Insert space between letters and digits if there isn't one already
+  return str
+    .replace(/^([A-Za-z]+)\s*(\d+)$/, (_, letters, digits) =>
+      `${letters.toUpperCase()} ${digits}`
+    )
+    .trim();
+}
+
+/**
+ * Try every field name the backend might use for class, then normalize.
+ */
 function classField(s) {
-  return s.class || s.className || s.grade || "—";
+  const raw =
+    s.className  ||
+    s.class      ||
+    s.grade      ||
+    s.classLevel ||
+    s.level      ||
+    "—";
+  return normalizeClass(raw);
 }
 
 function gradeFromPct(pct) {
@@ -21,14 +48,14 @@ function gradeFromPct(pct) {
 
 /* mini circular progress ring */
 function Ring({ pct, size = 64, stroke = 5, color }) {
-  const r   = (size - stroke * 2) / 2;
+  const r    = (size - stroke * 2) / 2;
   const circ = 2 * Math.PI * r;
   const off  = circ - (pct / 100) * circ;
   return (
     <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e2e8f0" strokeWidth={stroke} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#e2e8f0" strokeWidth={stroke} />
       <circle
-        cx={size / 2} cy={size / 2} r={r}
+        cx={size/2} cy={size/2} r={r}
         fill="none" stroke={color} strokeWidth={stroke}
         strokeDasharray={circ} strokeDashoffset={off}
         strokeLinecap="round"
@@ -40,10 +67,9 @@ function Ring({ pct, size = 64, stroke = 5, color }) {
 
 /* ─── Student Profile Drawer ───────────────────────────────── */
 function ProfileDrawer({ student, exams, onClose }) {
-  const [examScores, setExamScores] = useState([]); // { examTitle, subject, pct, score, total }
+  const [examScores, setExamScores] = useState([]);
   const [loading, setLoading]       = useState(true);
 
-  /* fetch results for every exam, filter rows that match this student */
   useEffect(() => {
     if (!student || !exams?.length) { setLoading(false); return; }
     let cancelled = false;
@@ -57,20 +83,21 @@ function ProfileDrawer({ student, exams, onClose }) {
           const results = res?.data?.results ?? res?.results ?? [];
           const mine    = results.find(
             (r) =>
-              r.student?._id === student._id ||
-              r.student?.email === student.email ||
-              r.student?.name === student.name
+              String(r.student?._id)        === String(student._id) ||
+              r.student?.email              === student.email        ||
+              r.student?.name               === student.name         ||
+              String(r.student?.studentId)  === String(student.studentId)
           );
           if (mine) {
             rows.push({
-              examId:     exam._id,
-              examTitle:  exam.title,
-              subject:    exam.subject,
-              term:       exam.term,
-              score:      mine.score ?? 0,
-              total:      mine.totalMarks ?? exam.questions?.length ?? 0,
-              pct:        mine.percentage ?? 0,
-              timeMins:   mine.timeTakenMins ?? null,
+              examId:    exam._id,
+              examTitle: exam.title,
+              subject:   exam.subject,
+              term:      exam.term,
+              score:     mine.score      ?? 0,
+              total:     mine.totalMarks ?? exam.questions?.length ?? 0,
+              pct:       mine.percentage ?? 0,
+              timeMins:  mine.timeTakenMins ?? null,
             });
           }
         } catch { /* skip silently */ }
@@ -81,14 +108,12 @@ function ProfileDrawer({ student, exams, onClose }) {
     return () => { cancelled = true; };
   }, [student, exams]);
 
-  /* aggregate */
   const overall = useMemo(() => {
     if (!examScores.length) return null;
     const avg = Math.round(examScores.reduce((s, r) => s + r.pct, 0) / examScores.length);
     return { avg, grade: gradeFromPct(avg) };
   }, [examScores]);
 
-  /* group by subject for subject averages */
   const bySubject = useMemo(() => {
     const map = {};
     for (const r of examScores) {
@@ -102,17 +127,14 @@ function ProfileDrawer({ student, exams, onClose }) {
   }, [examScores]);
 
   if (!student) return null;
-
   const cl = classField(student);
 
   return (
-    /* backdrop */
     <div style={{
       position: "fixed", inset: 0, zIndex: 200,
       background: "rgba(15,23,42,0.45)", backdropFilter: "blur(3px)",
       display: "flex", justifyContent: "flex-end",
     }} onClick={onClose}>
-      {/* drawer panel */}
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
@@ -125,13 +147,16 @@ function ProfileDrawer({ student, exams, onClose }) {
       >
         <style>{`
           @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+          @keyframes shimmer {
+            0%   { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+          }
         `}</style>
 
         {/* ── Hero header ── */}
         <div style={{
           background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)",
-          padding: "32px 28px 24px",
-          position: "relative",
+          padding: "32px 28px 24px", position: "relative",
         }}>
           <button onClick={onClose} style={{
             position: "absolute", top: 16, right: 16,
@@ -142,27 +167,29 @@ function ProfileDrawer({ student, exams, onClose }) {
           }}>✕</button>
 
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            {/* avatar */}
             <div style={{
               width: 64, height: 64, borderRadius: "50%",
               background: "linear-gradient(135deg,#38bdf8,#818cf8)",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 22, fontWeight: 800, color: "#fff",
-              border: "3px solid rgba(255,255,255,0.25)",
-              flexShrink: 0,
+              border: "3px solid rgba(255,255,255,0.25)", flexShrink: 0,
             }}>{initials(student.name)}</div>
 
             <div>
               <p style={{ color: "#fff", fontWeight: 700, fontSize: 18, margin: 0 }}>{student.name}</p>
               <p style={{ color: "#94a3b8", fontSize: 13, margin: "4px 0 0" }}>
-                {cl} · {student.gender || ""}
+                {cl}{student.gender ? ` · ${student.gender}` : ""}
               </p>
+              {student.studentId && (
+                <p style={{ color: "#64748b", fontSize: 11, marginTop: 3 }}>
+                  ID: {student.studentId}
+                </p>
+              )}
               {student.email && (
-                <p style={{ color: "#64748b", fontSize: 11, marginTop: 3 }}>{student.email}</p>
+                <p style={{ color: "#64748b", fontSize: 11, marginTop: 2 }}>{student.email}</p>
               )}
             </div>
 
-            {/* overall ring */}
             {overall && (
               <div style={{ marginLeft: "auto", textAlign: "center" }}>
                 <div style={{ position: "relative", width: 64, height: 64 }}>
@@ -171,7 +198,6 @@ function ProfileDrawer({ student, exams, onClose }) {
                     position: "absolute", inset: 0,
                     display: "flex", alignItems: "center", justifyContent: "center",
                     fontSize: 14, fontWeight: 800, color: "#fff",
-                    transform: "none",
                   }}>{overall.avg}%</div>
                 </div>
                 <p style={{ color: "#94a3b8", fontSize: 10, marginTop: 4 }}>Overall</p>
@@ -179,7 +205,6 @@ function ProfileDrawer({ student, exams, onClose }) {
             )}
           </div>
 
-          {/* overall grade badge */}
           {overall && (
             <div style={{ marginTop: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
               <span style={{
@@ -198,7 +223,6 @@ function ProfileDrawer({ student, exams, onClose }) {
 
         {/* ── Body ── */}
         <div style={{ padding: "24px 28px", flex: 1 }}>
-
           {loading ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {Array(4).fill(0).map((_, i) => (
@@ -209,18 +233,9 @@ function ProfileDrawer({ student, exams, onClose }) {
                   animation: "shimmer 1.4s infinite",
                 }} />
               ))}
-              <style>{`
-                @keyframes shimmer {
-                  0%   { background-position: 200% 0; }
-                  100% { background-position: -200% 0; }
-                }
-              `}</style>
             </div>
           ) : examScores.length === 0 ? (
-            <div style={{
-              textAlign: "center", padding: "48px 0",
-              color: "#94a3b8", fontSize: 14,
-            }}>
+            <div style={{ textAlign: "center", padding: "48px 0", color: "#94a3b8", fontSize: 14 }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
               <p style={{ margin: 0, fontWeight: 600 }}>No exam results yet</p>
               <p style={{ margin: "6px 0 0", fontSize: 12 }}>
@@ -229,7 +244,6 @@ function ProfileDrawer({ student, exams, onClose }) {
             </div>
           ) : (
             <>
-              {/* ── Subject averages ── */}
               {bySubject.length > 0 && (
                 <div style={{ marginBottom: 24 }}>
                   <p style={{ fontWeight: 700, color: "#1e293b", fontSize: 14, marginBottom: 12 }}>
@@ -241,7 +255,7 @@ function ProfileDrawer({ student, exams, onClose }) {
                       return (
                         <div key={subject} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                           <span style={{
-                            width: 120, fontSize: 12, fontWeight: 600,
+                            width: 130, fontSize: 12, fontWeight: 600,
                             color: "#475569", flexShrink: 0, textAlign: "right",
                           }}>{subject}</span>
                           <div style={{
@@ -270,7 +284,6 @@ function ProfileDrawer({ student, exams, onClose }) {
                 </div>
               )}
 
-              {/* ── Individual exam results ── */}
               <p style={{ fontWeight: 700, color: "#1e293b", fontSize: 14, marginBottom: 12 }}>
                 Exam Results
               </p>
@@ -284,7 +297,6 @@ function ProfileDrawer({ student, exams, onClose }) {
                       display: "flex", alignItems: "center", gap: 14,
                       background: "#fafafa",
                     }}>
-                      {/* mini ring */}
                       <div style={{ position: "relative", flexShrink: 0 }}>
                         <Ring pct={r.pct} size={48} stroke={4} color={g.color} />
                         <div style={{
@@ -297,8 +309,8 @@ function ProfileDrawer({ student, exams, onClose }) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{
                           fontWeight: 700, fontSize: 13, color: "#1e293b",
-                          margin: 0, whiteSpace: "nowrap", overflow: "hidden",
-                          textOverflow: "ellipsis",
+                          margin: 0, whiteSpace: "nowrap",
+                          overflow: "hidden", textOverflow: "ellipsis",
                         }}>{r.examTitle}</p>
                         <p style={{ fontSize: 11, color: "#64748b", margin: "3px 0 0" }}>
                           {r.subject} · {r.term}
@@ -332,58 +344,115 @@ function ProfileDrawer({ student, exams, onClose }) {
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════════ */
 export default function StudentsSection({ students, loading }) {
-  const [search, setSearch]         = useState("");
-  const [sort, setSort]             = useState("name");
-  const [activeClass, setClass]     = useState("all");
+  const [search, setSearch]          = useState("");
+  const [sort, setSort]              = useState("name");
+  const [activeClass, setClass]      = useState("all");
   const [profileStudent, setProfile] = useState(null);
-  const [allExams, setAllExams]     = useState([]);
-  const [examsLoading, setExamsLoad] = useState(true);
+  const [allExams, setAllExams]      = useState([]);
 
-  /* fetch all exams once so the drawer can query results */
+  const [studentAverages, setStudentAverages] = useState({});
+  const [averagesLoading, setAvgLoading]      = useState(true);
+
+  /* fetch all exams + all results, then build per-student averages */
   useEffect(() => {
     async function load() {
       try {
-        const res  = await getExams();
-        const data = res?.data?.exams ?? res?.exams ?? [];
-        setAllExams(data);
+        const examRes  = await getExams();
+        const exams    = examRes?.data?.exams ?? examRes?.exams ?? [];
+        setAllExams(exams);
+
+        const allResults = [];
+        await Promise.all(
+          exams.map(async (exam) => {
+            try {
+              const res     = await getExamResults(exam._id);
+              const results = res?.data?.results ?? res?.results ?? [];
+              results.forEach((r) => {
+                if (r.student?._id) {
+                  allResults.push({
+                    studentId: String(r.student._id),
+                    pct:       r.percentage ?? 0,
+                  });
+                }
+              });
+            } catch { /* skip */ }
+          })
+        );
+
+        const map = {};
+        allResults.forEach(({ studentId, pct }) => {
+          if (!map[studentId]) map[studentId] = { total: 0, count: 0 };
+          map[studentId].total += pct;
+          map[studentId].count += 1;
+        });
+        const averages = {};
+        Object.entries(map).forEach(([id, { total, count }]) => {
+          averages[id] = {
+            avg:       Math.round(total / count),
+            examCount: count,
+          };
+        });
+        setStudentAverages(averages);
       } catch { /* silent */ }
-      finally { setExamsLoad(false); }
+      finally { setAvgLoading(false); }
     }
     load();
   }, []);
 
-  /* unique classes */
+  /* unique classes — normalize every class name before deduplicating */
   const classList = useMemo(() => {
     const seen = new Set();
     (students || []).forEach((s) => {
-      const c = classField(s);
+      const c = classField(s); // already normalized
       if (c && c !== "—") seen.add(c);
     });
-    return Array.from(seen).sort();
+    return Array.from(seen).sort((a, b) => {
+      const order = ["JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"];
+      const ia    = order.indexOf(a);
+      const ib    = order.indexOf(b);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      return a.localeCompare(b);
+    });
   }, [students]);
 
-  /* derived list */
+  function getAvg(s) {
+    return studentAverages[String(s._id)]?.avg ?? null;
+  }
+
   const filtered = useMemo(() => {
     return (students || [])
       .filter((s) => {
-        const inClass = activeClass === "all" || classField(s) === activeClass;
+        // classField is now normalized, so "JSS1" and "JSS 1" both become "JSS 1"
+        const inClass     = activeClass === "all" || classField(s) === activeClass;
+        const q           = search.toLowerCase();
         const matchSearch =
-          s.name?.toLowerCase().includes(search.toLowerCase()) ||
-          classField(s).toLowerCase().includes(search.toLowerCase());
+          s.name?.toLowerCase().includes(q)       ||
+          classField(s).toLowerCase().includes(q) ||
+          s.studentId?.toString().includes(q)     ||
+          s.email?.toLowerCase().includes(q);
         return inClass && matchSearch;
       })
-      .sort((a, b) =>
-        sort === "name" ? a.name.localeCompare(b.name) : b.average - a.average
-      );
-  }, [students, activeClass, search, sort]);
+      .sort((a, b) => {
+        if (sort === "name") return a.name.localeCompare(b.name);
+        const avgA = getAvg(a) ?? -1;
+        const avgB = getAvg(b) ?? -1;
+        return avgB - avgA;
+      });
+  }, [students, activeClass, search, sort, studentAverages]);
 
-  /* exams scoped to the active class (for the drawer) */
+  /* exams scoped to the active class */
   const scopedExams = useMemo(() => {
     if (activeClass === "all") return allExams;
-    return allExams.filter(
-      (e) => e.className === activeClass || e.class === activeClass
-    );
+    return allExams.filter((e) => {
+      // Normalize the exam's class name too before comparing
+      const examClass = normalizeClass(e.className || e.class || "");
+      return examClass === activeClass;
+    });
   }, [allExams, activeClass]);
+
+  const isLoading = loading || averagesLoading;
 
   return (
     <div className={styles.section}>
@@ -395,13 +464,13 @@ export default function StudentsSection({ students, loading }) {
           <p className={styles.sectionSub}>
             {activeClass === "all"
               ? `${students?.length ?? 0} students enrolled`
-              : `${filtered.length} students in ${activeClass}`}
+              : `${filtered.length} student${filtered.length !== 1 ? "s" : ""} in ${activeClass}`}
           </p>
         </div>
         <div className={styles.controls}>
           <input
             className={styles.searchInput}
-            placeholder="Search by name…"
+            placeholder="Search by name, ID, class…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -417,10 +486,7 @@ export default function StudentsSection({ students, loading }) {
       </div>
 
       {/* ── Class tabs ── */}
-      <div style={{
-        display: "flex", gap: 8, flexWrap: "wrap",
-        marginBottom: 24,
-      }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
         <ClassTab
           label="All Classes"
           count={students?.length ?? 0}
@@ -439,7 +505,7 @@ export default function StudentsSection({ students, loading }) {
       </div>
 
       {/* ── Table ── */}
-      {loading ? (
+      {isLoading ? (
         <div className={styles.skeletonList}>
           {Array(6).fill(0).map((_, i) => <div key={i} className={styles.skeletonRow} />)}
         </div>
@@ -457,7 +523,10 @@ export default function StudentsSection({ students, loading }) {
             </thead>
             <tbody>
               {filtered.map((s) => {
-                const g = gradeFromPct(s.average ?? 0);
+                const avg       = getAvg(s);
+                const examCount = studentAverages[String(s._id)]?.examCount ?? 0;
+                const g         = gradeFromPct(avg ?? 0);
+
                 return (
                   <tr key={s._id}>
                     <td>
@@ -465,7 +534,9 @@ export default function StudentsSection({ students, loading }) {
                         <div className={styles.studentAvatar}>{initials(s.name)}</div>
                         <div>
                           <p className={styles.studentName}>{s.name}</p>
-                          <p className={styles.studentMeta}>{s.gender}</p>
+                          <p className={styles.studentMeta}>
+                            {s.studentId ? `ID: ${s.studentId}` : s.gender ?? ""}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -473,32 +544,41 @@ export default function StudentsSection({ students, loading }) {
                       <span className={styles.classBadge}>{classField(s)}</span>
                     </td>
                     <td>
-                      <div className={styles.avgWrap}>
-                        <span
-                          className={styles.avgScore}
-                          style={{ color: g.color }}
-                        >
-                          {s.average ?? 0}%
-                        </span>
-                        <div className={styles.miniBar}>
-                          <div
-                            className={styles.miniBarFill}
-                            style={{
-                              width: `${s.average ?? 0}%`,
-                              background: g.color,
-                            }}
-                          />
+                      {avg === null ? (
+                        <span style={{ fontSize: 12, color: "#94a3b8" }}>No exams yet</span>
+                      ) : (
+                        <div className={styles.avgWrap}>
+                          <span className={styles.avgScore} style={{ color: g.color }}>
+                            {avg}%
+                          </span>
+                          <div className={styles.miniBar}>
+                            <div
+                              className={styles.miniBarFill}
+                              style={{ width: `${avg}%`, background: g.color }}
+                            />
+                          </div>
+                          <span style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap" }}>
+                            {examCount} exam{examCount !== 1 ? "s" : ""}
+                          </span>
                         </div>
-                      </div>
+                      )}
                     </td>
                     <td>
-                      <span style={{
-                        padding: "3px 10px", borderRadius: 999,
-                        fontSize: 12, fontWeight: 700,
-                        color: g.color, background: g.bg,
-                      }}>
-                        {g.letter} · {g.label}
-                      </span>
+                      {avg === null ? (
+                        <span style={{
+                          padding: "3px 10px", borderRadius: 999,
+                          fontSize: 12, fontWeight: 600,
+                          color: "#94a3b8", background: "#f1f5f9",
+                        }}>—</span>
+                      ) : (
+                        <span style={{
+                          padding: "3px 10px", borderRadius: 999,
+                          fontSize: 12, fontWeight: 700,
+                          color: g.color, background: g.bg,
+                        }}>
+                          {g.letter} · {g.label}
+                        </span>
+                      )}
                     </td>
                     <td>
                       <button
@@ -549,8 +629,8 @@ function ClassTab({ label, count, active, onClick }) {
         padding: "7px 14px", borderRadius: 999, border: "none",
         cursor: "pointer", fontSize: 13, fontWeight: 600,
         transition: "all 0.18s",
-        background: active ? "#0f172a"        : "#f1f5f9",
-        color:      active ? "#fff"           : "#475569",
+        background: active ? "#0f172a"                         : "#f1f5f9",
+        color:      active ? "#fff"                            : "#475569",
         boxShadow:  active ? "0 2px 8px rgba(15,23,42,0.18)" : "none",
       }}
     >
@@ -559,7 +639,7 @@ function ClassTab({ label, count, active, onClick }) {
         fontSize: 11, fontWeight: 700,
         padding: "1px 7px", borderRadius: 999,
         background: active ? "rgba(255,255,255,0.15)" : "#e2e8f0",
-        color:      active ? "#fff" : "#64748b",
+        color:      active ? "#fff"                   : "#64748b",
       }}>{count}</span>
     </button>
   );

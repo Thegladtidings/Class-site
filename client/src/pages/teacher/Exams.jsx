@@ -4,14 +4,13 @@ import Toast from "../../components/Toast.jsx";
 import styles from "../../css/Sections.module.css";
 import {
   createExam, deleteExam, togglePublishExam,
-  getExams, getExamResults, updateExam,uploadQuestionImage
+  getExams, getExamResults, updateExam, uploadQuestionImage,
 } from "../api/teacherApi.js";
 
 const TERMS    = ["First Term", "Second Term", "Third Term"];
-const SUBJECTS = ["Mathematics", "Further Mathematics", "English", "Physics", "Chemistry", "Biology"];
+const SUBJECTS = ["Mathematics", "Further Mathematics", "English", "Physics", "Chemistry", "Biology", "Economics"];
 const CLASSES  = ["JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"];
 
-/* ── Empty form — now includes questionsPerStudent ── */
 function emptyForm(selectedClass) {
   return {
     title:               "",
@@ -19,18 +18,16 @@ function emptyForm(selectedClass) {
     className:           selectedClass || CLASSES[0],
     term:                TERMS[0],
     durationMins:        60,
-    questionsPerStudent: "",   // NEW — blank = give all questions
+    questionsPerStudent: "",
     startTime:           "",
     endTime:             "",
-    questions:           [{ question: "", options: ["", "", "", ""], correctAnswer: "" }],
+    questions:           [{ question: "", options: ["", "", "", ""], correctAnswer: "", imageUrl: "" }],
   };
 }
 
-// Update cloneQuestion
 function cloneQuestion() {
   return { question: "", options: ["", "", "", ""], correctAnswer: "", imageUrl: "" };
 }
-
 
 function parseBulkText(raw) {
   const blocks = raw.trim().split(/\n{2,}/);
@@ -38,12 +35,12 @@ function parseBulkText(raw) {
   for (const block of blocks) {
     const lines = block.trim().split("\n").map((l) => l.trim()).filter(Boolean);
     if (lines.length < 3) continue;
-    const questionText  = lines[0].replace(/^\d+[\.\)]\s*/, "").trim();
-    const optionLines   = lines.filter((l) => /^[A-Da-d][\.\)]/i.test(l));
-    const options       = optionLines.map((l) => l.replace(/^[A-Da-d][\.\)]\s*/i, "").trim());
-    const answerLine    = lines.find((l) => /^answer\s*:/i.test(l)) || "";
-    const answerLetter  = answerLine.replace(/^answer\s*:\s*/i, "").trim().toUpperCase();
-    const answerIndex   = ["A", "B", "C", "D"].indexOf(answerLetter);
+    const questionText = lines[0].replace(/^\d+[\.\)]\s*/, "").trim();
+    const optionLines  = lines.filter((l) => /^[A-Da-d][\.\)]/i.test(l));
+    const options      = optionLines.map((l) => l.replace(/^[A-Da-d][\.\)]\s*/i, "").trim());
+    const answerLine   = lines.find((l) => /^answer\s*:/i.test(l)) || "";
+    const answerLetter = answerLine.replace(/^answer\s*:\s*/i, "").trim().toUpperCase();
+    const answerIndex  = ["A", "B", "C", "D"].indexOf(answerLetter);
     const correctAnswer = options[answerIndex] ?? "";
     if (questionText && options.length >= 2)
       parsed.push({ question: questionText, options, correctAnswer });
@@ -51,10 +48,34 @@ function parseBulkText(raw) {
   return parsed;
 }
 
-/* ── Question Builder ─────────────────────────────────────── */
+/* ── Class Tab pill (same style as StudentsSection) ────────── */
+function ClassTab({ label, count, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "flex", alignItems: "center", gap: 6,
+        padding: "7px 14px", borderRadius: 999, border: "none",
+        cursor: "pointer", fontSize: 13, fontWeight: 600,
+        transition: "all 0.18s",
+        background: active ? "#0f172a"                         : "#f1f5f9",
+        color:      active ? "#fff"                            : "#475569",
+        boxShadow:  active ? "0 2px 8px rgba(15,23,42,0.18)" : "none",
+      }}
+    >
+      {label}
+      <span style={{
+        fontSize: 11, fontWeight: 700,
+        padding: "1px 7px", borderRadius: 999,
+        background: active ? "rgba(255,255,255,0.15)" : "#e2e8f0",
+        color:      active ? "#fff"                   : "#64748b",
+      }}>{count}</span>
+    </button>
+  );
+}
 
+/* ── Question Builder ─────────────────────────────────────── */
 function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bulkError, setBulkErr }) {
-  // Track per-question upload state: { [qi]: "idle" | "uploading" | "error" }
   const [uploadState, setUploadState] = useState({});
 
   function setQuestion(qi, field, value) {
@@ -80,25 +101,21 @@ function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bu
     setForm((p) => ({ ...p, questions: p.questions.filter((_, i) => i !== qi) }));
     setUploadState((p) => { const n = { ...p }; delete n[qi]; return n; });
   }
-
   async function handleImageUpload(qi, file) {
     if (!file) return;
     setUploadState((p) => ({ ...p, [qi]: "uploading" }));
     try {
       const res = await uploadQuestionImage(file);
-      const url = res?.data?.url;
-      setQuestion(qi, "imageUrl", url);
+      setQuestion(qi, "imageUrl", res?.data?.url);
       setUploadState((p) => ({ ...p, [qi]: "idle" }));
     } catch {
       setUploadState((p) => ({ ...p, [qi]: "error" }));
     }
   }
-
   function removeImage(qi) {
     setQuestion(qi, "imageUrl", "");
     setUploadState((p) => ({ ...p, [qi]: "idle" }));
   }
-
   function applyBulk() {
     const parsed = parseBulkText(bulkText);
     if (parsed.length === 0) {
@@ -106,14 +123,12 @@ function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bu
       return;
     }
     setBulkErr("");
-    // Bulk paste won't have images — seed imageUrl as empty
     setForm((p) => ({ ...p, questions: parsed.map((q) => ({ ...q, imageUrl: "" })) }));
     setTab("manual");
   }
 
   return (
     <div style={{ marginTop: 20 }}>
-      {/* ── Tab header — unchanged ── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <p style={{ fontWeight: 700, color: "#1e293b", fontSize: 15 }}>
           Questions ({form.questions.length})
@@ -134,7 +149,6 @@ function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bu
         </div>
       </div>
 
-      {/* ── Bulk tab — unchanged ── */}
       {tab === "bulk" && (
         <div style={{ marginBottom: 16 }}>
           <p style={{ fontSize: 12, color: "#64748b", marginBottom: 8, lineHeight: 1.6 }}>
@@ -165,7 +179,6 @@ function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bu
         </div>
       )}
 
-      {/* ── Manual tab ── */}
       {tab === "manual" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {form.questions.map((q, qi) => {
@@ -175,7 +188,6 @@ function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bu
                 background: "#f8fafc", border: "1.5px solid #e2e8f0",
                 borderRadius: 10, padding: 14,
               }}>
-                {/* Question header */}
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                   <p style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>Question {qi + 1}</p>
                   {form.questions.length > 1 && (
@@ -186,7 +198,6 @@ function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bu
                   )}
                 </div>
 
-                {/* Question text */}
                 <textarea rows={2} placeholder="Enter question…" value={q.question}
                   onChange={(e) => setQuestion(qi, "question", e.target.value)}
                   style={{
@@ -196,65 +207,42 @@ function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bu
                   }}
                 />
 
-                {/* ── Image section ── */}
                 <div style={{ marginBottom: 12 }}>
                   {q.imageUrl ? (
-                    /* Image preview */
                     <div style={{ position: "relative", display: "inline-block" }}>
-                      <img
-                        src={q.imageUrl}
-                        alt={`Question ${qi + 1}`}
-                        style={{
-                          maxWidth: "100%", maxHeight: 220,
-                          borderRadius: 8, border: "1.5px solid #e2e8f0",
-                          display: "block",
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(qi)}
-                        style={{
-                          position: "absolute", top: 6, right: 6,
-                          background: "#ef4444", color: "#fff",
-                          border: "none", borderRadius: "50%",
-                          width: 24, height: 24, cursor: "pointer",
-                          fontWeight: 700, fontSize: 13,
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
-                        }}
-                      >✕</button>
+                      <img src={q.imageUrl} alt={`Question ${qi + 1}`} style={{
+                        maxWidth: "100%", maxHeight: 220,
+                        borderRadius: 8, border: "1.5px solid #e2e8f0", display: "block",
+                      }} />
+                      <button type="button" onClick={() => removeImage(qi)} style={{
+                        position: "absolute", top: 6, right: 6,
+                        background: "#ef4444", color: "#fff", border: "none",
+                        borderRadius: "50%", width: 24, height: 24, cursor: "pointer",
+                        fontWeight: 700, fontSize: 13,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+                      }}>✕</button>
                     </div>
                   ) : (
-                    /* Upload button */
                     <label style={{
                       display: "inline-flex", alignItems: "center", gap: 6,
-                      padding: "7px 14px", borderRadius: 8,
-                      border: "1.5px dashed #cbd5e1",
+                      padding: "7px 14px", borderRadius: 8, border: "1.5px dashed #cbd5e1",
                       background: imgStatus === "uploading" ? "#f8fafc" : "#fff",
                       color: imgStatus === "error" ? "#ef4444" : "#64748b",
                       fontSize: 12, fontWeight: 600,
                       cursor: imgStatus === "uploading" ? "not-allowed" : "pointer",
                       transition: "all 0.2s",
                     }}>
-                      {imgStatus === "uploading" ? (
-                        <>⏳ Uploading…</>
-                      ) : imgStatus === "error" ? (
-                        <>❌ Upload failed — try again</>
-                      ) : (
-                        <>🖼️ Add Image (optional)</>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        style={{ display: "none" }}
+                      {imgStatus === "uploading" ? <>⏳ Uploading…</>
+                        : imgStatus === "error"   ? <>❌ Upload failed — try again</>
+                        :                           <>🖼️ Add Image (optional)</>}
+                      <input type="file" accept="image/*" style={{ display: "none" }}
                         disabled={imgStatus === "uploading"}
-                        onChange={(e) => handleImageUpload(qi, e.target.files[0])}
-                      />
+                        onChange={(e) => handleImageUpload(qi, e.target.files[0])} />
                     </label>
                   )}
                 </div>
 
-                {/* Options grid — unchanged */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
                   {["A", "B", "C", "D"].map((letter, oi) => (
                     <div key={oi} style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -275,7 +263,6 @@ function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bu
                   ))}
                 </div>
 
-                {/* Correct answer — unchanged */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "#475569", whiteSpace: "nowrap" }}>
                     ✅ Correct Answer:
@@ -293,7 +280,6 @@ function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bu
               </div>
             );
           })}
-
           <button type="button" onClick={addQuestion} style={{
             padding: "9px 0", borderRadius: 8, border: "1.5px dashed #1a6ef5",
             background: "#eff6ff", color: "#1a6ef5", fontWeight: 600,
@@ -358,9 +344,8 @@ function ResultsModal({ exam, results, onClose }) {
             return (
               <div key={r._id ?? i} style={{
                 display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
-                gap: 8, padding: "10px 12px",
-                background: "#fff", borderRadius: 8,
-                border: "1.5px solid #e2e8f0", alignItems: "center",
+                gap: 8, padding: "10px 12px", background: "#fff",
+                borderRadius: 8, border: "1.5px solid #e2e8f0", alignItems: "center",
               }}>
                 <div>
                   <p style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>
@@ -404,6 +389,9 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
   const [list, setList]             = useState([]);
   const [fetching, setFetching]     = useState(true);
 
+  // ── NEW: active class tab (independent of selectedClass prop) ──
+  const [activeClass, setActiveClass] = useState("all");
+
   const [showCreate, setCreate]     = useState(false);
   const [createForm, setCreateForm] = useState(() => emptyForm(selectedClass));
   const [createTab, setCreateTab]   = useState("manual");
@@ -425,7 +413,12 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
   const [toast, setToast]     = useState(null);
   const [togglingId, setTogId] = useState(null);
 
-  useEffect(() => { setCreateForm(emptyForm(selectedClass)); }, [selectedClass]);
+  // When the selectedClass prop changes (dashboard class selector),
+  // sync the tab and pre-seed the create form
+  useEffect(() => {
+    setCreateForm(emptyForm(selectedClass));
+    setActiveClass(selectedClass || "all");
+  }, [selectedClass]);
 
   useEffect(() => {
     async function load() {
@@ -442,16 +435,30 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
     load();
   }, []);
 
-  const visibleList = selectedClass
-    ? list.filter((e) => e.className === selectedClass || e.class === selectedClass)
-    : list;
+  // ── Derive unique classes from the loaded exam list ──
+  // Sorted in school order so tabs always appear JSS 1 → SS 3
+  const CLASS_ORDER = ["JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"];
+  const classList = [...new Set(
+    list.map((e) => e.className || e.class).filter(Boolean)
+  )].sort((a, b) => {
+    const ia = CLASS_ORDER.indexOf(a);
+    const ib = CLASS_ORDER.indexOf(b);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    return a.localeCompare(b);
+  });
+
+  // ── Filter by active tab (takes precedence over selectedClass prop) ──
+  const visibleList = activeClass === "all"
+    ? list
+    : list.filter((e) => (e.className || e.class) === activeClass);
 
   /* ── Validation helper ── */
   function validateForm(form) {
-    if (!form.title.trim())  { setToast({ msg: "Please enter an exam title.", type: "error" }); return false; }
-    if (!form.startTime)     { setToast({ msg: "Please set a start time.", type: "error" }); return false; }
-    if (!form.endTime)       { setToast({ msg: "Please set an end time.", type: "error" }); return false; }
-
+    if (!form.title.trim()) { setToast({ msg: "Please enter an exam title.", type: "error" }); return false; }
+    if (!form.startTime)    { setToast({ msg: "Please set a start time.", type: "error" }); return false; }
+    if (!form.endTime)      { setToast({ msg: "Please set an end time.", type: "error" }); return false; }
     const qps = Number(form.questionsPerStudent);
     if (form.questionsPerStudent !== "" && (isNaN(qps) || qps < 1)) {
       setToast({ msg: "Questions per student must be a positive number.", type: "error" });
@@ -461,39 +468,41 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
       setToast({ msg: `Questions per student (${qps}) cannot exceed your pool size (${form.questions.length}).`, type: "error" });
       return false;
     }
-
     const emptyQ = form.questions.some(
       (q) => !q.question.trim() || q.options.some((o) => !o.trim()) || !q.correctAnswer.trim()
     );
     if (emptyQ) { setToast({ msg: "Fill in all questions, options, and correct answers.", type: "error" }); return false; }
-
     return true;
   }
 
   /* ── Build payload ── */
   function buildPayload(form) {
-  return {
-    ...form,
-    durationMins:        Number(form.durationMins),
-    questionsPerStudent: form.questionsPerStudent !== "" ? Number(form.questionsPerStudent) : null,
-    questions:           form.questions.map(({ question, options, correctAnswer, imageUrl }) =>
-                           ({ question, options, correctAnswer, imageUrl: imageUrl || null })
-                         ),
-  };
-}
+    return {
+      ...form,
+      durationMins:        Number(form.durationMins),
+      questionsPerStudent: form.questionsPerStudent !== "" ? Number(form.questionsPerStudent) : null,
+      questions:           form.questions.map(({ question, options, correctAnswer, imageUrl }) =>
+                             ({ question, options, correctAnswer, imageUrl: imageUrl || null })
+                           ),
+    };
+  }
+
   /* ── Create ── */
   async function handleCreate() {
     if (!validateForm(createForm)) return;
     setSub(true);
     try {
-      const res     = await createExam(buildPayload(createForm));
-      const created = res?.data?.exam ?? { _id: `e${Date.now()}`, ...buildPayload(createForm), isPublished: false };
+      const payload = buildPayload(createForm);
+      const res     = await createExam(payload);
+      const created = res?.data?.exam ?? { _id: `e${Date.now()}`, ...payload, isPublished: false };
       setList((p) => [created, ...p]);
       setToast({ msg: "Exam created successfully!", type: "success" });
       setCreate(false);
       setCreateForm(emptyForm(selectedClass));
       setCreateBulk("");
       setCreateTab("manual");
+      // Auto-switch tab to the new exam's class
+      if (created.className) setActiveClass(created.className);
     } catch (err) {
       setToast({ msg: err?.response?.data?.message || "Failed to create exam.", type: "error" });
     } finally {
@@ -511,13 +520,14 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
       className:           exam.className,
       term:                exam.term,
       durationMins:        exam.durationMins,
-      questionsPerStudent: exam.questionsPerStudent ?? "",   // NEW
+      questionsPerStudent: exam.questionsPerStudent ?? "",
       startTime:           toLocal(exam.startTime),
       endTime:             toLocal(exam.endTime),
       questions:           exam.questions?.map((q) => ({
         question:      q.question,
         options:       [...(q.options ?? ["", "", "", ""])],
         correctAnswer: q.correctAnswer ?? "",
+        imageUrl:      q.imageUrl ?? "",
       })) ?? [cloneQuestion()],
     });
     setEditTab("manual");
@@ -534,8 +544,9 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
         await togglePublishExam(editTarget._id);
         setList((p) => p.map((x) => x._id === editTarget._id ? { ...x, isPublished: false } : x));
       }
-      const res     = await updateExam(editTarget._id, buildPayload(editForm));
-      const updated = res?.data?.exam ?? { ...editTarget, ...buildPayload(editForm), isPublished: false };
+      const payload = buildPayload(editForm);
+      const res     = await updateExam(editTarget._id, payload);
+      const updated = res?.data?.exam ?? { ...editTarget, ...payload, isPublished: false };
       setList((p) => p.map((x) => x._id === editTarget._id ? updated : x));
       setToast({ msg: "Exam updated! It has been unpublished — republish when ready.", type: "success" });
       setEditTarget(null);
@@ -609,11 +620,14 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
   }
 
   const upcomingCount = visibleList.filter((e) => examStatus(e) === "Upcoming").length;
+  const ongoingCount  = visibleList.filter((e) => examStatus(e) === "Ongoing").length;
+
   const PILL = {
     Upcoming:  { color: "#1a6ef5", bg: "#eff6ff" },
     Ongoing:   { color: "#f59e0b", bg: "#fffbeb" },
     Completed: { color: "#6b7280", bg: "#f3f4f6" },
   };
+
   const isLoading = fetching || externalLoading;
 
   /* ════════ RENDER ════════ */
@@ -625,17 +639,40 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
         <div>
           <h2 className={styles.sectionTitle}>Exams</h2>
           <p className={styles.sectionSub}>
-            {isLoading
-              ? "Loading…"
-              : selectedClass
-                ? `${upcomingCount} upcoming · ${selectedClass}`
-                : `${upcomingCount} upcoming`}
+            {isLoading ? "Loading…" : (
+              <>
+                {upcomingCount} upcoming
+                {ongoingCount > 0 && <> · <span style={{ color: "#f59e0b", fontWeight: 700 }}>{ongoingCount} ongoing</span></>}
+                {activeClass !== "all" && <> · {activeClass}</>}
+              </>
+            )}
           </p>
         </div>
         <button className={styles.primaryBtn} onClick={() => setCreate(true)}>
           + Schedule Exam
         </button>
       </div>
+
+      {/* ── Class tabs ── */}
+      {!isLoading && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
+          <ClassTab
+            label="All Classes"
+            count={list.length}
+            active={activeClass === "all"}
+            onClick={() => setActiveClass("all")}
+          />
+          {classList.map((cls) => (
+            <ClassTab
+              key={cls}
+              label={cls}
+              count={list.filter((e) => (e.className || e.class) === cls).length}
+              active={activeClass === cls}
+              onClick={() => setActiveClass(cls)}
+            />
+          ))}
+        </div>
+      )}
 
       {/* ── List ── */}
       {isLoading ? (
@@ -647,7 +684,11 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
           {visibleList.length === 0 && (
             <div className={styles.emptyState}>
               <span>📝</span>
-              <p>{selectedClass ? `No exams for ${selectedClass} yet.` : "No exams scheduled yet."}</p>
+              <p>
+                {activeClass !== "all"
+                  ? `No exams for ${activeClass} yet.`
+                  : "No exams scheduled yet."}
+              </p>
             </div>
           )}
 
@@ -662,7 +703,16 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
                   <div style={{ flex: 1 }}>
                     <p className={styles.itemTitle}>{ex.title}</p>
                     <p className={styles.itemMeta}>
-                      {ex.subject}&nbsp;·&nbsp;{ex.className}&nbsp;·&nbsp;{ex.term}
+                      {ex.subject}&nbsp;·&nbsp;
+                      {/* Show class badge — highlighted when viewing All Classes */}
+                      <span style={{
+                        padding: "1px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700,
+                        background: activeClass === "all" ? "#eff6ff" : "transparent",
+                        color:      activeClass === "all" ? "#1a6ef5" : "inherit",
+                      }}>
+                        {ex.className || ex.class}
+                      </span>
+                      &nbsp;·&nbsp;{ex.term}
                     </p>
                     <p className={styles.itemMeta}>
                       {ex.startTime
@@ -749,7 +799,7 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
       {/* ════════ CREATE MODAL ════════ */}
       {showCreate && (
         <Modal
-          title={`Schedule Exam${selectedClass ? ` — ${selectedClass}` : ""}`}
+          title={`Schedule Exam${activeClass !== "all" ? ` — ${activeClass}` : ""}`}
           onClose={() => { setCreate(false); setCreateForm(emptyForm(selectedClass)); setCreateBulk(""); setCreateTab("manual"); }}
           footer={
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
@@ -825,7 +875,7 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
   );
 }
 
-/* ── TopFields — now includes Questions Per Student field ─── */
+/* ── TopFields ───────────────────────────────────────────── */
 function TopFields({ form, setForm, lockedClass }) {
   function setTop(field, value) { setForm((p) => ({ ...p, [field]: value })); }
 
@@ -882,13 +932,10 @@ function TopFields({ form, setForm, lockedClass }) {
         </div>
       </div>
 
-      {/* ── NEW: Questions per student ── */}
       <div className={styles.formGroup}>
         <label>Questions Per Student</label>
         <input
-          type="number"
-          min={1}
-          max={form.questions?.length || 999}
+          type="number" min={1} max={form.questions?.length || 999}
           placeholder={`Leave blank to give all ${form.questions?.length ?? 0} questions`}
           value={form.questionsPerStudent}
           onChange={(e) => setTop("questionsPerStudent", e.target.value)}
