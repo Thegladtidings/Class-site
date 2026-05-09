@@ -13,7 +13,9 @@
   background: #ffffff;
   border-radius: 18px;
   width: 100%; max-width: 520px;
-  max-height: 90vh; overflow-y: auto;
+  max-height: 90vh;
+  display: flex; flex-direction: column; /* children stack vertically */
+  overflow: hidden;                       /* clips rounded corners only */
   box-shadow: 0 20px 60px rgba(0,0,0,0.2);
   animation: scaleIn 0.25s ease;
 }
@@ -21,7 +23,9 @@
 
 .modalHead {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 24px 28px 0;
+  padding: 24px 28px 16px;
+  flex-shrink: 0; /* never shrink — always visible */
+  border-bottom: 1px solid #f1f5f9;
 }
 .modalTitle {
   font-family: 'Sora', 'Outfit', sans-serif;
@@ -38,8 +42,16 @@
 }
 .closeBtn:hover { background: #fee2e2; color: #ef4444; }
 
-.modalBody { padding: 20px 28px; }
+.modalBody {
+  padding: 20px 28px;
+  overflow-y: auto; /* only this section scrolls */
+  flex: 1; 
+  margin-top:15%;         /* takes up remaining space between header and footer */
+}
+
 .modalFoot {
-  padding: 0 28px 24px;
+  padding: 16px 28px 24px;
   display: flex; justify-content: flex-end; gap: 10px;
+  flex-shrink: 0; /* never shrink — always visible */
+  border-top: 1px solid #f1f5f9;
 }

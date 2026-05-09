@@ -9,6 +9,7 @@ const assignmentSchema = new mongoose.Schema({
   className:      { type: String, required: true },
   attachmentUrl:  { type: String },                     // PDF/image link (Cloudinary etc.)
   attachmentName: { type: String },                     // original filename
+  attachmentType: { type: String, enum: ["image", "pdf"] },  // ← add this
   postedBy:       { type: Schema.Types.ObjectId, ref: "Teacher", required: true },
   isActive:       { type: Boolean, default: true },
 }, { timestamps: true });

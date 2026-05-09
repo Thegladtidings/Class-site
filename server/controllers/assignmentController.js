@@ -1,10 +1,33 @@
 import Assignment from "../models/assignment.js";
 import Submission from "../models/submission.js";
 
+// Replace your existing makeDownloadUrl helper in assignmentController.js with this:
+
+function makeDownloadUrl(url, mimetype = "") {
+  if (!url) return url;
+  const isPDF =
+    mimetype === "application/pdf" ||
+    url.toLowerCase().includes(".pdf");
+  if (!isPDF) return url;
+
+  // PDFs now upload as resource_type "raw", so the URL is:
+  //   https://res.cloudinary.com/<cloud>/raw/upload/v.../file.pdf
+  // fl_attachment on raw URLs works correctly and forces a download.
+  return url.replace("/raw/upload/", "/raw/upload/fl_attachment/");
+}
 // ─── TEACHER: Create/upload an assignment ────────────────────────────────────
 export const createAssignment = async (req, res) => {
   try {
-    const { title, subject, description, dueDate, className, attachmentUrl, attachmentName } = req.body;
+    const {
+      title,
+      subject,
+      description,
+      dueDate,
+      className,
+      attachmentUrl,
+      attachmentName,
+      attachmentType,
+    } = req.body;
 
     const assignment = await Assignment.create({
       title,
@@ -12,8 +35,9 @@ export const createAssignment = async (req, res) => {
       description,
       dueDate,
       className,
-      attachmentUrl,    // URL from Cloudinary/S3 after frontend uploads the file
+      attachmentUrl,
       attachmentName,
+      attachmentType,
       postedBy: req.user.id,
     });
 
@@ -38,7 +62,6 @@ export const getSubmissionsForAssignment = async (req, res) => {
   try {
     const { assignmentId } = req.params;
 
-    // Confirm this assignment belongs to the requesting teacher
     const assignment = await Assignment.findOne({ _id: assignmentId, postedBy: req.user.id });
     if (!assignment) return res.status(404).json({ message: "Assignment not found or not yours" });
 
@@ -56,23 +79,63 @@ export const gradeSubmission = async (req, res) => {
   try {
     const { submissionId } = req.params;
     const { grade, teacherRemark } = req.body;
-console.log("Grading submission:", submissionId, "with grade:", grade);
+
     const submission = await Submission.findById(submissionId).populate("assignment");
     if (!submission) return res.status(404).json({ message: "Submission not found" });
-console.log("Found submission for assignment:", submission.assignment.title);
-    // Ensure teacher owns the assignment
+
     if (String(submission.assignment.postedBy) !== String(req.user.id)) {
       return res.status(403).json({ message: "Not authorised to grade this submission" });
     }
-console.log("Updating submission with grade and remark");
+
     submission.grade = grade;
     submission.teacherRemark = teacherRemark;
-    console.log("Saving graded submission to database");
+    submission.status = "graded";
     await submission.save();
-console.log("Submission graded successfully");
+
     res.json({ message: "Submission graded", submission });
   } catch (err) {
     res.status(500).json({ message: "Error grading submission", error: err.message });
+  }
+};
+// ─── TEACHER: Update an existing assignment ───────────────────────────────────
+export const updateAssignment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Only the teacher who created it can edit it
+    const assignment = await Assignment.findOne({ _id: id, postedBy: req.user.id });
+    if (!assignment) {
+      return res.status(404).json({ message: "Assignment not found or not yours" });
+    }
+
+    const {
+      title,
+      subject,
+      description,
+      dueDate,
+      className,
+      attachmentUrl,
+      attachmentName,
+      attachmentType,
+    } = req.body;
+
+    // Only overwrite fields that were actually sent
+    if (title       !== undefined) assignment.title       = title;
+    if (subject     !== undefined) assignment.subject     = subject;
+    if (description !== undefined) assignment.description = description;
+    if (dueDate     !== undefined) assignment.dueDate     = dueDate;
+    if (className   !== undefined) assignment.className   = className;
+
+    // Attachment: accept explicit null to clear, or a new value to replace
+    if (attachmentUrl  !== undefined) assignment.attachmentUrl  = attachmentUrl  ?? null;
+    if (attachmentName !== undefined) assignment.attachmentName = attachmentName ?? null;
+    if (attachmentType !== undefined) assignment.attachmentType = attachmentType ?? null;
+
+    await assignment.save();
+
+    res.json({ message: "Assignment updated successfully", assignment });
+  } catch (err) {
+    res.status(500).json({ message: "Error updating assignment", error: err.message });
   }
 };
 
@@ -93,7 +156,6 @@ export const deleteAssignment = async (req, res) => {
 // ─── STUDENT: View assignments for their class ────────────────────────────────
 export const getAssignmentsForStudent = async (req, res) => {
   try {
-    // req.user.id is the student; fetch className from DB
     const { default: Student } = await import("../models/student.js");
     const student = await Student.findById(req.user.id);
 
@@ -111,41 +173,58 @@ export const getAssignmentsForStudent = async (req, res) => {
 };
 
 // ─── STUDENT: Submit an assignment ────────────────────────────────────────────
+// - First submission: creates a new Submission document
+// - Re-submission before deadline: updates the existing one (edit allowed)
+// - Re-submission after deadline: blocked with 400
 export const submitAssignment = async (req, res) => {
   try {
-
     const { assignmentId } = req.params;
     const { note } = req.body;
-console.log("Received submission for assignment:", assignmentId, "with note:", note);
+
     const assignment = await Assignment.findById(assignmentId);
     if (!assignment || !assignment.isActive) {
       return res.status(404).json({ message: "Assignment not found" });
     }
 
-    const alreadySubmitted = await Submission.findOne({
-      assignment: assignmentId,
-      student: req.user.id,
-    });
-
-    if (alreadySubmitted) {
-      return res.status(400).json({
-        message: "You have already submitted this assignment",
-      });
-    }
-
-    // ✅ Cloudinary file comes from req.file
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const fileUrl = req.file.path;   // Cloudinary URL
+    const isLate = assignment.dueDate && new Date() > new Date(assignment.dueDate);
+
+    // Build correct Cloudinary URL — PDFs get fl_attachment so they download
+    // instead of opening a blank browser tab
+    const rawUrl  = req.file.path;           // Cloudinary URL from multer-storage-cloudinary
+    const fileUrl = makeDownloadUrl(rawUrl, req.file.mimetype);
     const fileName = req.file.originalname;
 
-    const isLate =
-      assignment.dueDate && new Date() > new Date(assignment.dueDate);
+    const existing = await Submission.findOne({
+      assignment: assignmentId,
+      student: req.user.id,
+    });
 
+    // ── Edit after deadline → block ─────────────────────────────────────────
+    if (existing && isLate) {
+      return res.status(400).json({
+        message: "The deadline has passed — you can no longer edit this submission.",
+      });
+    }
 
-      
+    // ── Edit before deadline → update ───────────────────────────────────────
+    if (existing) {
+      existing.fileUrl  = fileUrl;
+      existing.fileName = fileName;
+      existing.note     = note ?? existing.note;
+      existing.status   = "submitted";
+      await existing.save();
+
+      return res.status(200).json({
+        message: "Submission updated successfully",
+        submission: existing,
+      });
+    }
+
+    // ── Fresh submission ────────────────────────────────────────────────────
     const submission = await Submission.create({
       assignment: assignmentId,
       student: req.user.id,
@@ -177,5 +256,37 @@ export const getMySubmissions = async (req, res) => {
     res.json({ submissions });
   } catch (err) {
     res.status(500).json({ message: "Error fetching your submissions", error: err.message });
+  }
+};
+// ─── STUDENT: Unsubmit an assignment ─────────────────────────────────────────
+// Deletes the submission entirely so the assignment goes back to "pending".
+// Only allowed before the deadline.
+export const unsubmitAssignment = async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+
+    const assignment = await Assignment.findById(assignmentId);
+    if (!assignment) return res.status(404).json({ message: "Assignment not found" });
+
+    // Block unsubmit after deadline
+    const isLate = assignment.dueDate && new Date() > new Date(assignment.dueDate);
+    if (isLate) {
+      return res.status(400).json({
+        message: "The deadline has passed — you can no longer unsubmit.",
+      });
+    }
+
+    const deleted = await Submission.findOneAndDelete({
+      assignment: assignmentId,
+      student: req.user.id,
+    });
+
+    if (!deleted) {
+      return res.status(404).json({ message: "No submission found to remove." });
+    }
+
+    res.json({ message: "Submission removed. Assignment is now pending." });
+  } catch (err) {
+    res.status(500).json({ message: "Error removing submission", error: err.message });
   }
 };

@@ -59,14 +59,42 @@ function Ring({ pct, size = 64, stroke = 5, color }) {
   );
 }
 
+/* ─── Avatar — shows profileImage if available, else initials ── */
+function Avatar({ name, profileImage, size = 40, fontSize = 15, border }) {
+  const [imgError, setImgError] = useState(false);
+  const showImage = profileImage && !imgError;
+
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: "50%",
+      background: "linear-gradient(135deg,#38bdf8,#818cf8)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize, fontWeight: 800, color: "#fff",
+      border: border ?? "none",
+      flexShrink: 0, overflow: "hidden",
+    }}>
+      {showImage ? (
+        <img
+          src={profileImage}
+          alt={name}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        initials(name)
+      )}
+    </div>
+  );
+}
+
 /* ─── helpers ────────────────────────────────────────────────── */
 function generateStudentId() {
-  const year    = new Date().getFullYear().toString().slice(-2); // e.g. "25"
-  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";                   // no I/O to avoid confusion
+  const year    = new Date().getFullYear().toString().slice(-2);
+  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
   const prefix  = letters[Math.floor(Math.random() * letters.length)] +
                   letters[Math.floor(Math.random() * letters.length)];
-  const digits  = String(Math.floor(Math.random() * 9000) + 1000); // 1000–9999
-  return `STU-${year}${prefix}${digits}`;                          // e.g. STU-25KR4372
+  const digits  = String(Math.floor(Math.random() * 9000) + 1000);
+  return `STU-${year}${prefix}${digits}`;
 }
 
 /* ─── Register Student Modal ────────────────────────────────── */
@@ -74,7 +102,7 @@ function RegisterModal({ onClose, onSuccess }) {
   const [form, setForm] = useState(() => ({
     name: "", email: "", password: "", confirm: "",
     className: "", gender: "",
-    studentId: generateStudentId(),   // auto-generated on mount
+    studentId: generateStudentId(),
   }));
   const [error, setError]     = useState("");
   const [success, setSuccess] = useState("");
@@ -118,24 +146,28 @@ function RegisterModal({ onClose, onSuccess }) {
 
   const field = (id, label, icon, inputProps) => (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <label htmlFor={id} style={{ fontSize: 12, fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+      <label htmlFor={id} style={{
+        fontSize: 12, fontWeight: 700, color: "#475569",
+        letterSpacing: "0.04em", textTransform: "uppercase",
+      }}>
         {label}
       </label>
       <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
         <span style={{
-          position: "absolute", left: 12, fontSize: 15, userSelect: "none",
-          color: "#94a3b8", pointerEvents: "none",
+          position: "absolute", left: 12, fontSize: 15,
+          userSelect: "none", color: "#94a3b8", pointerEvents: "none",
         }}>{icon}</span>
         <input
           id={id}
           {...inputProps}
           style={{
-            width: "100%", paddingLeft: 38, paddingRight: inputProps.type === "password" ? 40 : 12,
+            width: "100%",
+            paddingLeft: 38,
+            paddingRight: inputProps.type === "password" ? 40 : 12,
             paddingTop: 10, paddingBottom: 10, borderRadius: 10,
             border: "1.5px solid #e2e8f0", background: "#f8fafc",
             fontSize: 13, color: "#1e293b", outline: "none",
-            transition: "border-color 0.18s",
-            boxSizing: "border-box",
+            transition: "border-color 0.18s", boxSizing: "border-box",
           }}
           onFocus={(e) => (e.target.style.borderColor = "#0f172a")}
           onBlur={(e)  => (e.target.style.borderColor = "#e2e8f0")}
@@ -174,10 +206,14 @@ function RegisterModal({ onClose, onSuccess }) {
         {/* Header */}
         <div style={{
           background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)",
-          padding: "24px 28px", display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "24px 28px",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
         }}>
           <div>
-            <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>
+            <p style={{
+              color: "#94a3b8", fontSize: 11, fontWeight: 700,
+              letterSpacing: "0.08em", textTransform: "uppercase", margin: 0,
+            }}>
               Teacher Portal
             </p>
             <h2 style={{ color: "#fff", fontSize: 20, fontWeight: 800, margin: "4px 0 0" }}>
@@ -189,8 +225,8 @@ function RegisterModal({ onClose, onSuccess }) {
             style={{
               width: 34, height: 34, borderRadius: "50%", border: "none",
               background: "rgba(255,255,255,0.12)", color: "#fff",
-              fontSize: 16, cursor: "pointer", display: "flex",
-              alignItems: "center", justifyContent: "center",
+              fontSize: 16, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
               transition: "background 0.18s",
             }}
             onMouseEnter={(e) => (e.target.style.background = "rgba(255,255,255,0.22)")}
@@ -226,19 +262,26 @@ function RegisterModal({ onClose, onSuccess }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             {field("reg-name", "Full Name", "👤", {
               type: "text", placeholder: "e.g. Amara Obi",
-              value: form.name, onChange: set("name"), required: true, autoComplete: "off",
+              value: form.name, onChange: set("name"),
+              required: true, autoComplete: "off",
             })}
 
-            {/* Student ID — read-only, auto-generated */}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              <label style={{
+                fontSize: 12, fontWeight: 700, color: "#475569",
+                letterSpacing: "0.04em", textTransform: "uppercase",
+              }}>
                 Student ID{" "}
-                <span style={{ fontWeight: 400, color: "#94a3b8", textTransform: "none", letterSpacing: 0, fontSize: 11 }}>
-                  (auto)
-                </span>
+                <span style={{
+                  fontWeight: 400, color: "#94a3b8",
+                  textTransform: "none", letterSpacing: 0, fontSize: 11,
+                }}>(auto)</span>
               </label>
               <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                <span style={{ position: "absolute", left: 12, fontSize: 14, color: "#94a3b8", pointerEvents: "none", userSelect: "none" }}>#</span>
+                <span style={{
+                  position: "absolute", left: 12, fontSize: 14,
+                  color: "#94a3b8", pointerEvents: "none", userSelect: "none",
+                }}>#</span>
                 <input
                   readOnly
                   value={form.studentId}
@@ -272,17 +315,23 @@ function RegisterModal({ onClose, onSuccess }) {
           {/* Email */}
           {field("reg-email", "Email Address", "✉", {
             type: "email", placeholder: "student@school.edu",
-            value: form.email, onChange: set("email"), required: true, autoComplete: "off",
+            value: form.email, onChange: set("email"),
+            required: true, autoComplete: "off",
           })}
 
           {/* Class + Gender row */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label htmlFor="reg-class" style={{ fontSize: 12, fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                Class
-              </label>
+              <label htmlFor="reg-class" style={{
+                fontSize: 12, fontWeight: 700, color: "#475569",
+                letterSpacing: "0.04em", textTransform: "uppercase",
+              }}>Class</label>
               <div style={{ position: "relative" }}>
-                <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 15, color: "#94a3b8", pointerEvents: "none" }}>🏫</span>
+                <span style={{
+                  position: "absolute", left: 12, top: "50%",
+                  transform: "translateY(-50%)", fontSize: 15,
+                  color: "#94a3b8", pointerEvents: "none",
+                }}>🏫</span>
                 <select
                   id="reg-class"
                   value={form.className}
@@ -312,11 +361,16 @@ function RegisterModal({ onClose, onSuccess }) {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label htmlFor="reg-gender" style={{ fontSize: 12, fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                Gender
-              </label>
+              <label htmlFor="reg-gender" style={{
+                fontSize: 12, fontWeight: 700, color: "#475569",
+                letterSpacing: "0.04em", textTransform: "uppercase",
+              }}>Gender</label>
               <div style={{ position: "relative" }}>
-                <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 15, color: "#94a3b8", pointerEvents: "none" }}>⚥</span>
+                <span style={{
+                  position: "absolute", left: 12, top: "50%",
+                  transform: "translateY(-50%)", fontSize: 15,
+                  color: "#94a3b8", pointerEvents: "none",
+                }}>⚥</span>
                 <select
                   id="reg-gender"
                   value={form.gender}
@@ -341,11 +395,15 @@ function RegisterModal({ onClose, onSuccess }) {
 
           {/* Password */}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label htmlFor="reg-password" style={{ fontSize: 12, fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-              Password
-            </label>
+            <label htmlFor="reg-password" style={{
+              fontSize: 12, fontWeight: 700, color: "#475569",
+              letterSpacing: "0.04em", textTransform: "uppercase",
+            }}>Password</label>
             <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-              <span style={{ position: "absolute", left: 12, fontSize: 15, color: "#94a3b8", pointerEvents: "none" }}>🔒</span>
+              <span style={{
+                position: "absolute", left: 12, fontSize: 15,
+                color: "#94a3b8", pointerEvents: "none",
+              }}>🔒</span>
               <input
                 id="reg-password"
                 type={showPw ? "text" : "password"}
@@ -358,7 +416,8 @@ function RegisterModal({ onClose, onSuccess }) {
                   width: "100%", paddingLeft: 38, paddingRight: 44,
                   paddingTop: 10, paddingBottom: 10, borderRadius: 10,
                   border: "1.5px solid #e2e8f0", background: "#f8fafc",
-                  fontSize: 13, color: "#1e293b", outline: "none", boxSizing: "border-box",
+                  fontSize: 13, color: "#1e293b", outline: "none",
+                  boxSizing: "border-box",
                 }}
                 onFocus={(e) => (e.target.style.borderColor = "#0f172a")}
                 onBlur={(e)  => (e.target.style.borderColor = "#e2e8f0")}
@@ -398,7 +457,8 @@ function RegisterModal({ onClose, onSuccess }) {
             {loading ? (
               <>
                 <span style={{
-                  width: 16, height: 16, border: "2px solid rgba(255,255,255,0.3)",
+                  width: 16, height: 16,
+                  border: "2px solid rgba(255,255,255,0.3)",
                   borderTopColor: "#fff", borderRadius: "50%",
                   display: "inline-block", animation: "spin 0.7s linear infinite",
                 }} />
@@ -433,10 +493,10 @@ function ProfileDrawer({ student, exams, onClose }) {
           const results = res?.data?.results ?? res?.results ?? [];
           const mine    = results.find(
             (r) =>
-              String(r.student?._id)        === String(student._id) ||
-              r.student?.email              === student.email        ||
-              r.student?.name               === student.name         ||
-              String(r.student?.studentId)  === String(student.studentId)
+              String(r.student?._id)       === String(student._id)   ||
+              r.student?.email             === student.email          ||
+              r.student?.name              === student.name           ||
+              String(r.student?.studentId) === String(student.studentId)
           );
           if (mine) {
             rows.push({
@@ -444,9 +504,9 @@ function ProfileDrawer({ student, exams, onClose }) {
               examTitle: exam.title,
               subject:   exam.subject,
               term:      exam.term,
-              score:     mine.score      ?? 0,
-              total:     mine.totalMarks ?? exam.questions?.length ?? 0,
-              pct:       mine.percentage ?? 0,
+              score:     mine.score         ?? 0,
+              total:     mine.totalMarks    ?? exam.questions?.length ?? 0,
+              pct:       mine.percentage    ?? 0,
               timeMins:  mine.timeTakenMins ?? null,
             });
           }
@@ -503,6 +563,7 @@ function ProfileDrawer({ student, exams, onClose }) {
           }
         `}</style>
 
+        {/* ── Hero header ── */}
         <div style={{
           background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)",
           padding: "32px 28px 24px", position: "relative",
@@ -511,29 +572,37 @@ function ProfileDrawer({ student, exams, onClose }) {
             position: "absolute", top: 16, right: 16,
             background: "rgba(255,255,255,0.12)", border: "none",
             color: "#fff", width: 32, height: 32, borderRadius: "50%",
-            fontSize: 16, cursor: "pointer", display: "flex",
-            alignItems: "center", justifyContent: "center",
+            fontSize: 16, cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
           }}>✕</button>
 
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{
-              width: 64, height: 64, borderRadius: "50%",
-              background: "linear-gradient(135deg,#38bdf8,#818cf8)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 22, fontWeight: 800, color: "#fff",
-              border: "3px solid rgba(255,255,255,0.25)", flexShrink: 0,
-            }}>{initials(student.name)}</div>
+
+            {/* ── Profile image / initials avatar ── */}
+            <Avatar
+              name={student.name}
+              profileImage={student.profileImage}
+              size={64}
+              fontSize={22}
+              border="3px solid rgba(255,255,255,0.25)"
+            />
 
             <div>
-              <p style={{ color: "#fff", fontWeight: 700, fontSize: 18, margin: 0 }}>{student.name}</p>
+              <p style={{ color: "#fff", fontWeight: 700, fontSize: 18, margin: 0 }}>
+                {student.name}
+              </p>
               <p style={{ color: "#94a3b8", fontSize: 13, margin: "4px 0 0" }}>
                 {cl}{student.gender ? ` · ${student.gender}` : ""}
               </p>
               {student.studentId && (
-                <p style={{ color: "#64748b", fontSize: 11, marginTop: 3 }}>ID: {student.studentId}</p>
+                <p style={{ color: "#64748b", fontSize: 11, marginTop: 3 }}>
+                  ID: {student.studentId}
+                </p>
               )}
               {student.email && (
-                <p style={{ color: "#64748b", fontSize: 11, marginTop: 2 }}>{student.email}</p>
+                <p style={{ color: "#64748b", fontSize: 11, marginTop: 2 }}>
+                  {student.email}
+                </p>
               )}
             </div>
 
@@ -568,6 +637,7 @@ function ProfileDrawer({ student, exams, onClose }) {
           )}
         </div>
 
+        {/* ── Body ── */}
         <div style={{ padding: "24px 28px", flex: 1 }}>
           {loading ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -581,10 +651,15 @@ function ProfileDrawer({ student, exams, onClose }) {
               ))}
             </div>
           ) : examScores.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "48px 0", color: "#94a3b8", fontSize: 14 }}>
+            <div style={{
+              textAlign: "center", padding: "48px 0",
+              color: "#94a3b8", fontSize: 14,
+            }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
               <p style={{ margin: 0, fontWeight: 600 }}>No exam results yet</p>
-              <p style={{ margin: "6px 0 0", fontSize: 12 }}>This student hasn't submitted any exams.</p>
+              <p style={{ margin: "6px 0 0", fontSize: 12 }}>
+                This student hasn't submitted any exams.
+              </p>
             </div>
           ) : (
             <>
@@ -598,12 +673,29 @@ function ProfileDrawer({ student, exams, onClose }) {
                       const g = gradeFromPct(avg);
                       return (
                         <div key={subject} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <span style={{ width: 130, fontSize: 12, fontWeight: 600, color: "#475569", flexShrink: 0, textAlign: "right" }}>{subject}</span>
-                          <div style={{ flex: 1, height: 8, borderRadius: 99, background: "#e2e8f0", overflow: "hidden" }}>
-                            <div style={{ height: "100%", width: `${avg}%`, background: g.color, borderRadius: 99, transition: "width 0.5s ease" }} />
+                          <span style={{
+                            width: 130, fontSize: 12, fontWeight: 600,
+                            color: "#475569", flexShrink: 0, textAlign: "right",
+                          }}>{subject}</span>
+                          <div style={{
+                            flex: 1, height: 8, borderRadius: 99,
+                            background: "#e2e8f0", overflow: "hidden",
+                          }}>
+                            <div style={{
+                              height: "100%", width: `${avg}%`,
+                              background: g.color, borderRadius: 99,
+                              transition: "width 0.5s ease",
+                            }} />
                           </div>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: g.color, width: 36, textAlign: "right" }}>{avg}%</span>
-                          <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 999, color: g.color, background: g.bg, flexShrink: 0 }}>{g.letter}</span>
+                          <span style={{
+                            fontSize: 12, fontWeight: 700,
+                            color: g.color, width: 36, textAlign: "right",
+                          }}>{avg}%</span>
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, padding: "2px 7px",
+                            borderRadius: 999, color: g.color, background: g.bg,
+                            flexShrink: 0,
+                          }}>{g.letter}</span>
                         </div>
                       );
                     })}
@@ -611,14 +703,17 @@ function ProfileDrawer({ student, exams, onClose }) {
                 </div>
               )}
 
-              <p style={{ fontWeight: 700, color: "#1e293b", fontSize: 14, marginBottom: 12 }}>Exam Results</p>
+              <p style={{ fontWeight: 700, color: "#1e293b", fontSize: 14, marginBottom: 12 }}>
+                Exam Results
+              </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {examScores.map((r) => {
                   const g = gradeFromPct(r.pct);
                   return (
                     <div key={r.examId} style={{
                       border: "1.5px solid #e2e8f0", borderRadius: 12,
-                      padding: "14px 16px", display: "flex", alignItems: "center", gap: 14,
+                      padding: "14px 16px",
+                      display: "flex", alignItems: "center", gap: 14,
                       background: "#fafafa",
                     }}>
                       <div style={{ position: "relative", flexShrink: 0 }}>
@@ -630,16 +725,25 @@ function ProfileDrawer({ student, exams, onClose }) {
                         }}>{r.pct}%</div>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontWeight: 700, fontSize: 13, color: "#1e293b", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.examTitle}</p>
+                        <p style={{
+                          fontWeight: 700, fontSize: 13, color: "#1e293b",
+                          margin: 0, whiteSpace: "nowrap",
+                          overflow: "hidden", textOverflow: "ellipsis",
+                        }}>{r.examTitle}</p>
                         <p style={{ fontSize: 11, color: "#64748b", margin: "3px 0 0" }}>
-                          {r.subject} · {r.term}{r.timeMins != null && ` · ${r.timeMins} min`}
+                          {r.subject} · {r.term}
+                          {r.timeMins != null && ` · ${r.timeMins} min`}
                         </p>
                       </div>
                       <div style={{ textAlign: "right", flexShrink: 0 }}>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", margin: 0 }}>{r.score}/{r.total}</p>
-                        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: g.color, background: g.bg, display: "inline-block", marginTop: 4 }}>
-                          {g.letter} · {g.label}
-                        </span>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", margin: 0 }}>
+                          {r.score}/{r.total}
+                        </p>
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, padding: "2px 8px",
+                          borderRadius: 999, color: g.color, background: g.bg,
+                          display: "inline-block", marginTop: 4,
+                        }}>{g.letter} · {g.label}</span>
                       </div>
                     </div>
                   );
@@ -657,21 +761,20 @@ function ProfileDrawer({ student, exams, onClose }) {
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════════ */
 export default function StudentsSection({ students, loading, onStudentRegistered }) {
-  const [search, setSearch]           = useState("");
-  const [sort, setSort]               = useState("name");
-  const [activeClass, setClass]       = useState("all");
-  const [profileStudent, setProfile]  = useState(null);
-  const [allExams, setAllExams]       = useState([]);
-  const [showRegister, setShowRegister] = useState(false);   // ← new
-
+  const [search, setSearch]             = useState("");
+  const [sort, setSort]                 = useState("name");
+  const [activeClass, setClass]         = useState("all");
+  const [profileStudent, setProfile]    = useState(null);
+  const [allExams, setAllExams]         = useState([]);
+  const [showRegister, setShowRegister] = useState(false);
   const [studentAverages, setStudentAverages] = useState({});
   const [averagesLoading, setAvgLoading]      = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const examRes  = await getExams();
-        const exams    = examRes?.data?.exams ?? examRes?.exams ?? [];
+        const examRes = await getExams();
+        const exams   = examRes?.data?.exams ?? examRes?.exams ?? [];
         setAllExams(exams);
 
         const allResults = [];
@@ -682,7 +785,10 @@ export default function StudentsSection({ students, loading, onStudentRegistered
               const results = res?.data?.results ?? res?.results ?? [];
               results.forEach((r) => {
                 if (r.student?._id) {
-                  allResults.push({ studentId: String(r.student._id), pct: r.percentage ?? 0 });
+                  allResults.push({
+                    studentId: String(r.student._id),
+                    pct:       r.percentage ?? 0,
+                  });
                 }
               });
             } catch { /* skip */ }
@@ -708,7 +814,10 @@ export default function StudentsSection({ students, loading, onStudentRegistered
 
   const classList = useMemo(() => {
     const seen = new Set();
-    (students || []).forEach((s) => { const c = classField(s); if (c && c !== "—") seen.add(c); });
+    (students || []).forEach((s) => {
+      const c = classField(s);
+      if (c && c !== "—") seen.add(c);
+    });
     return Array.from(seen).sort((a, b) => {
       const order = ["JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"];
       const ia = order.indexOf(a), ib = order.indexOf(b);
@@ -741,7 +850,9 @@ export default function StudentsSection({ students, loading, onStudentRegistered
 
   const scopedExams = useMemo(() => {
     if (activeClass === "all") return allExams;
-    return allExams.filter((e) => normalizeClass(e.className || e.class || "") === activeClass);
+    return allExams.filter(
+      (e) => normalizeClass(e.className || e.class || "") === activeClass
+    );
   }, [allExams, activeClass]);
 
   const isLoading = loading || averagesLoading;
@@ -775,7 +886,6 @@ export default function StudentsSection({ students, loading, onStudentRegistered
             <option value="avg">Sort: Performance</option>
           </select>
 
-          {/* ── Register Student button ── */}
           <button
             onClick={() => setShowRegister(true)}
             style={{
@@ -837,7 +947,20 @@ export default function StudentsSection({ students, loading, onStudentRegistered
                   <tr key={s._id}>
                     <td>
                       <div className={styles.studentCell}>
-                        <div className={styles.studentAvatar}>{initials(s.name)}</div>
+
+                        {/* ── Table row avatar with profileImage ── */}
+                        <div
+                          className={styles.studentAvatar}
+                          style={{ overflow: "hidden", padding: 0, flexShrink: 0 }}
+                        >
+                          <Avatar
+                            name={s.name}
+                            profileImage={s.profileImage}
+                            size={36}
+                            fontSize={13}
+                          />
+                        </div>
+
                         <div>
                           <p className={styles.studentName}>{s.name}</p>
                           <p className={styles.studentMeta}>
@@ -846,15 +969,22 @@ export default function StudentsSection({ students, loading, onStudentRegistered
                         </div>
                       </div>
                     </td>
-                    <td><span className={styles.classBadge}>{classField(s)}</span></td>
+                    <td>
+                      <span className={styles.classBadge}>{classField(s)}</span>
+                    </td>
                     <td>
                       {avg === null ? (
                         <span style={{ fontSize: 12, color: "#94a3b8" }}>No exams yet</span>
                       ) : (
                         <div className={styles.avgWrap}>
-                          <span className={styles.avgScore} style={{ color: g.color }}>{avg}%</span>
+                          <span className={styles.avgScore} style={{ color: g.color }}>
+                            {avg}%
+                          </span>
                           <div className={styles.miniBar}>
-                            <div className={styles.miniBarFill} style={{ width: `${avg}%`, background: g.color }} />
+                            <div
+                              className={styles.miniBarFill}
+                              style={{ width: `${avg}%`, background: g.color }}
+                            />
                           </div>
                           <span style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap" }}>
                             {examCount} exam{examCount !== 1 ? "s" : ""}
@@ -864,15 +994,26 @@ export default function StudentsSection({ students, loading, onStudentRegistered
                     </td>
                     <td>
                       {avg === null ? (
-                        <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, color: "#94a3b8", background: "#f1f5f9" }}>—</span>
+                        <span style={{
+                          padding: "3px 10px", borderRadius: 999,
+                          fontSize: 12, fontWeight: 600,
+                          color: "#94a3b8", background: "#f1f5f9",
+                        }}>—</span>
                       ) : (
-                        <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, color: g.color, background: g.bg }}>
+                        <span style={{
+                          padding: "3px 10px", borderRadius: 999,
+                          fontSize: 12, fontWeight: 700,
+                          color: g.color, background: g.bg,
+                        }}>
                           {g.letter} · {g.label}
                         </span>
                       )}
                     </td>
                     <td>
-                      <button className={styles.viewBtn} onClick={() => setProfile(s)}>
+                      <button
+                        className={styles.viewBtn}
+                        onClick={() => setProfile(s)}
+                      >
                         View Profile
                       </button>
                     </td>

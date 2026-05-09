@@ -5,30 +5,17 @@ import styles from "../../css/Studentdashboard.module.css";
 import { getAssignments, getMySubmissions } from "../api/studentApi";
 import axiosInstance from "../api/Axiosinstance.js";
 
-/* ─────────────────────────────────────────────────────────────
-   submitAssignment — sends FormData so multer can read req.file
-   We define it here (not in studentApi) so we can strip the
-   Content-Type header that the shared axios instance likely sets.
-   Without this, the multipart boundary is missing and multer
-   sees no file → "No file uploaded".
-───────────────────────────────────────────────────────────── */
 async function submitAssignment(assignmentId, formData) {
   return axiosInstance.post(
     `/api/assignments/submit/${assignmentId}`,
     formData,
-    {
-      headers: {
-        /* Let the browser set Content-Type automatically.
-           If axios has a default "application/json" header it
-           will overwrite the multipart boundary — deleting it
-           forces the browser to build the correct header.      */
-        "Content-Type": undefined,
-      },
-    }
+    { headers: { "Content-Type": undefined } }
   );
 }
 
-/* ─────────────────────────────────────────── */
+async function unsubmitAssignment(assignmentId) {
+  return axiosInstance.delete(`/api/assignments/unsubmit/${assignmentId}`);
+}
 
 const STATUS_META = {
   pending:   { label: "Pending",   color: "#f59e0b", bg: "#fffbeb" },
@@ -43,24 +30,23 @@ export default function StudentAssignments() {
   const [loading, setLoading]           = useState(true);
   const [tab, setTab]                   = useState("pending");
   const [submitTarget, setSubmitTarget] = useState(null);
+  const [isEditing, setIsEditing]       = useState(false);
   const [form, setForm]                 = useState({ note: "", fileName: "" });
   const [submitting, setSubmitting]     = useState(false);
+  const [unsubmitting, setUnsubmitting] = useState(null); // assignmentId being unsubmitted
   const [dragOver, setDragOver]         = useState(false);
   const [toast, setToast]               = useState(null);
 
   const fileRef         = useRef(null);
-  const selectedFileRef = useRef(null); // holds the actual File object
+  const selectedFileRef = useRef(null);
 
-  /* ── Load assignments + my submissions ── */
   useEffect(() => {
     async function load() {
       try {
         const [aRes, sRes] = await Promise.all([getAssignments(), getMySubmissions()]);
         const aList = aRes?.data?.assignments ?? [];
         const sList = sRes?.data?.submissions ?? [];
-
         setAssignments(aList);
-
         const map = {};
         sList.forEach((s) => {
           map[String(s.assignment?._id ?? s.assignment)] = s;
@@ -75,7 +61,6 @@ export default function StudentAssignments() {
     load();
   }, []);
 
-  /* ── File selection (click or drag) ── */
   function handleFile(file) {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) {
@@ -86,27 +71,29 @@ export default function StudentAssignments() {
     setForm((p) => ({ ...p, fileName: file.name }));
   }
 
-  /* ── Clear selected file ── */
   function clearFile() {
     selectedFileRef.current = null;
     if (fileRef.current) fileRef.current.value = "";
     setForm((p) => ({ ...p, fileName: "" }));
   }
 
-  /* ── Open submit modal ── */
-  function openSubmitModal(assignment) {
+  function openSubmitModal(assignment, editing = false) {
     clearFile();
-    setForm({ note: "", fileName: "" });
+    const existingSub = submissions[String(assignment._id)];
+    setForm({
+      note:     editing && existingSub?.note ? existingSub.note : "",
+      fileName: "",
+    });
+    setIsEditing(editing);
     setSubmitTarget(assignment);
   }
 
-  /* ── Close submit modal ── */
   function closeSubmitModal() {
     clearFile();
     setSubmitTarget(null);
+    setIsEditing(false);
   }
 
-  /* ── Submit to backend ── */
   async function handleSubmit() {
     if (!selectedFileRef.current && !form.note.trim()) {
       setToast({ msg: "Please attach a file or add a note.", type: "error" });
@@ -115,33 +102,25 @@ export default function StudentAssignments() {
 
     setSubmitting(true);
     try {
-      /*
-        Build FormData exactly as multer expects:
-          field "file"  → the File object  (matches upload.single("file"))
-          field "note"  → plain text
-      */
       const fd = new FormData();
-      if (selectedFileRef.current) {
-        fd.append("file", selectedFileRef.current);
-      }
-      if (form.note.trim()) {
-        fd.append("note", form.note.trim());
-      }
+      if (selectedFileRef.current) fd.append("file", selectedFileRef.current);
+      if (form.note.trim())        fd.append("note", form.note.trim());
 
-      const res = await submitAssignment(submitTarget._id, fd);
-
-      /* Update local submissions map with what the server returned */
+      const res   = await submitAssignment(submitTarget._id, fd);
       const saved = res?.data?.submission ?? {
         _id:         `s${Date.now()}`,
         assignment:  submitTarget._id,
-        fileName:    selectedFileRef.current?.name ?? "",
+        fileName:    selectedFileRef.current?.name ?? submissions[String(submitTarget._id)]?.fileName ?? "",
         note:        form.note,
         status:      isLate(submitTarget) ? "late" : "submitted",
         submittedAt: new Date().toISOString(),
       };
 
       setSubmissions((prev) => ({ ...prev, [String(submitTarget._id)]: saved }));
-      setToast({ msg: res?.data?.message ?? "Submitted successfully!", type: "success" });
+      setToast({
+        msg: isEditing ? "Submission updated!" : res?.data?.message ?? "Submitted successfully!",
+        type: "success",
+      });
       closeSubmitModal();
     } catch (err) {
       setToast({
@@ -153,7 +132,31 @@ export default function StudentAssignments() {
     }
   }
 
-  /* ── Helpers ── */
+  async function handleUnsubmit(assignmentId) {
+    if (!window.confirm("Remove your submission? The assignment will go back to pending.")) return;
+
+    setUnsubmitting(String(assignmentId));
+    try {
+      await unsubmitAssignment(assignmentId);
+
+      // Remove from local map → card moves back to Pending tab instantly
+      setSubmissions((prev) => {
+        const next = { ...prev };
+        delete next[String(assignmentId)];
+        return next;
+      });
+
+      setToast({ msg: "Submission removed. Assignment is now pending.", type: "info" });
+    } catch (err) {
+      setToast({
+        msg: err?.response?.data?.message || "Could not remove submission.",
+        type: "error",
+      });
+    } finally {
+      setUnsubmitting(null);
+    }
+  }
+
   function isLate(a) {
     return a.dueDate && new Date() > new Date(a.dueDate);
   }
@@ -168,18 +171,15 @@ export default function StudentAssignments() {
     if (!dueDate) return null;
     const diff = new Date(dueDate) - new Date();
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    if (days < 0)  return { label: `${Math.abs(days)}d overdue`, color: "#ef4444" };
-    if (days === 0) return { label: "Due today",                  color: "#f59e0b" };
-    return           { label: `${days}d left`,                    color: days <= 2 ? "#f97316" : "#10b981" };
+    if (days < 0)   return { label: `${Math.abs(days)}d overdue`, color: "#ef4444" };
+    if (days === 0) return { label: "Due today",                   color: "#f59e0b" };
+    return           { label: `${days}d left`,                     color: days <= 2 ? "#f97316" : "#10b981" };
   }
 
   const pending   = assignments.filter((a) => !submissions[String(a._id)]);
   const submitted = assignments.filter((a) =>  submissions[String(a._id)]);
   const displayed = tab === "pending" ? pending : submitted;
 
-  /* ════════════════════════════════════════════
-     RENDER
-  ════════════════════════════════════════════ */
   return (
     <div className={styles.section}>
 
@@ -224,10 +224,11 @@ export default function StudentAssignments() {
           )}
 
           {displayed.map((a) => {
-            const status = getStatus(a);
-            const meta   = STATUS_META[status] ?? STATUS_META.pending;
-            const due    = daysLeft(a.dueDate);
-            const sub    = submissions[String(a._id)];
+            const status  = getStatus(a);
+            const meta    = STATUS_META[status] ?? STATUS_META.pending;
+            const due     = daysLeft(a.dueDate);
+            const sub     = submissions[String(a._id)];
+            const canEdit = sub && !isLate(a); // before deadline only
 
             return (
               <div key={a._id} className={styles.itemCard}>
@@ -262,12 +263,20 @@ export default function StudentAssignments() {
                         href={a.attachmentUrl}
                         target="_blank"
                         rel="noreferrer"
+                        download={a.attachmentName}
                         style={{
                           display: "inline-flex", alignItems: "center", gap: 4,
                           marginTop: 6, fontSize: 12, color: "#1a6ef5", fontWeight: 500,
+                          textDecoration: "none",
                         }}
                       >
-                        📎 {a.attachmentName}
+                        {a.attachmentType === "image" ? "🖼" : "📄"} {a.attachmentName}
+                        <span style={{
+                          fontSize: 10, background: "#eff6ff", color: "#1a6ef5",
+                          padding: "1px 6px", borderRadius: 99, fontWeight: 600, marginLeft: 2,
+                        }}>
+                          Download
+                        </span>
                       </a>
                     )}
                   </div>
@@ -316,33 +325,67 @@ export default function StudentAssignments() {
                           ✔ Grade: {sub.grade}
                         </p>
                         {sub.teacherRemark && (
-                          <p style={{ color: "#166534", margin: 0 }}>
-                            💬 {sub.teacherRemark}
-                          </p>
+                          <p style={{ color: "#166534", margin: 0 }}>💬 {sub.teacherRemark}</p>
                         )}
                       </div>
                     )}
                   </div>
                 )}
 
+                {/* Actions */}
                 <div className={styles.itemActions}>
                   {!sub ? (
                     <button
                       className={styles.primaryBtn}
                       style={{ fontSize: 12, padding: "7px 16px" }}
-                      onClick={() => openSubmitModal(a)}
+                      onClick={() => openSubmitModal(a, false)}
                     >
                       📤 Submit
                     </button>
                   ) : (
-                    <span style={{ fontSize: 12, color: "#94a3b8" }}>
-                      Submitted&nbsp;
-                      {sub.submittedAt || sub.createdAt
-                        ? new Date(sub.submittedAt ?? sub.createdAt).toLocaleDateString("en-US", {
-                            month: "short", day: "numeric", year: "numeric",
-                          })
-                        : ""}
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 12, color: "#94a3b8" }}>
+                        Submitted&nbsp;
+                        {sub.submittedAt || sub.createdAt
+                          ? new Date(sub.submittedAt ?? sub.createdAt).toLocaleDateString("en-US", {
+                              month: "short", day: "numeric", year: "numeric",
+                            })
+                          : ""}
+                      </span>
+
+                      {/* Edit + Unsubmit — only before deadline */}
+                      {canEdit && (
+                        <>
+                          <button
+                            onClick={() => openSubmitModal(a, true)}
+                            style={{
+                              fontSize: 12, fontWeight: 600,
+                              padding: "6px 12px", borderRadius: 8,
+                              border: "1.5px solid #e2e8f0",
+                              background: "#f8fafc", color: "#475569",
+                              cursor: "pointer",
+                            }}
+                          >
+                            ✏️ Edit
+                          </button>
+
+                          <button
+                            onClick={() => handleUnsubmit(a._id)}
+                            disabled={unsubmitting === String(a._id)}
+                            style={{
+                              fontSize: 12, fontWeight: 600,
+                              padding: "6px 12px", borderRadius: 8,
+                              border: "1.5px solid #fca5a5",
+                              background: "#fef2f2", color: "#ef4444",
+                              cursor: "pointer",
+                              opacity: unsubmitting === String(a._id) ? 0.6 : 1,
+                            }}
+                          >
+                            {unsubmitting === String(a._id) ? "Removing…" : "✕ Unsubmit"}
+                          </button>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -351,12 +394,10 @@ export default function StudentAssignments() {
         </div>
       )}
 
-      {/* ════════════════════════════════════════════
-          SUBMIT MODAL
-      ════════════════════════════════════════════ */}
+      {/* ════════ SUBMIT / EDIT MODAL ════════ */}
       {submitTarget && (
         <Modal
-          title={`Submit — ${submitTarget.title}`}
+          title={isEditing ? `Edit Submission — ${submitTarget.title}` : `Submit — ${submitTarget.title}`}
           onClose={closeSubmitModal}
           footer={
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
@@ -368,14 +409,17 @@ export default function StudentAssignments() {
                 disabled={submitting}
                 onClick={handleSubmit}
               >
-                {submitting ? "Uploading…" : "📤 Submit Assignment"}
+                {submitting
+                  ? "Uploading…"
+                  : isEditing
+                  ? "💾 Save Changes"
+                  : "📤 Submit Assignment"}
               </button>
             </div>
           }
         >
           <div className={styles.form}>
 
-            {/* Late warning */}
             {isLate(submitTarget) && (
               <div style={{
                 background: "#fef2f2", border: "1.5px solid #fca5a5",
@@ -383,6 +427,16 @@ export default function StudentAssignments() {
                 fontSize: 13, color: "#991b1b",
               }}>
                 ⚠️ The deadline has passed — this will be marked as <strong>late</strong>.
+              </div>
+            )}
+
+            {isEditing && (
+              <div style={{
+                background: "#eff6ff", border: "1.5px solid #bfdbfe",
+                borderRadius: 8, padding: "10px 14px",
+                fontSize: 13, color: "#1e40af",
+              }}>
+                ✏️ Upload a new file to replace your current one, or just update your note.
               </div>
             )}
 
@@ -404,7 +458,6 @@ export default function StudentAssignments() {
               </div>
 
               {form.fileName ? (
-                /* ── File selected state ── */
                 <div style={{ textAlign: "center" }}>
                   <p className={styles.uploadText} style={{ color: "#1a6ef5", fontWeight: 600 }}>
                     {form.fileName}
@@ -414,13 +467,9 @@ export default function StudentAssignments() {
                       ? `${(selectedFileRef.current.size / 1024).toFixed(0)} KB`
                       : ""}
                   </p>
-                  {/* Remove button — stopPropagation so the zone's onClick doesn't fire */}
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearFile();
-                    }}
+                    onClick={(e) => { e.stopPropagation(); clearFile(); }}
                     style={{
                       background: "#fef2f2", border: "1.5px solid #fca5a5",
                       color: "#ef4444", borderRadius: 6,
@@ -432,14 +481,16 @@ export default function StudentAssignments() {
                   </button>
                 </div>
               ) : (
-                /* ── Empty state ── */
                 <>
-                  <p className={styles.uploadText}>Drop your file here or click to browse</p>
+                  <p className={styles.uploadText}>
+                    {isEditing
+                      ? "Drop a new file to replace your current one"
+                      : "Drop your file here or click to browse"}
+                  </p>
                   <p className={styles.uploadHint}>PDF, DOC, DOCX, images — max 10 MB</p>
                 </>
               )}
 
-              {/* Hidden file input */}
               <input
                 ref={fileRef}
                 type="file"
