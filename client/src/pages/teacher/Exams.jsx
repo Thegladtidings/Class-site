@@ -737,8 +737,10 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
                         year: "numeric", hour: "2-digit", minute: "2-digit",
                       })}
                       &nbsp;→&nbsp;
-                      {formatLocalDatetime(ex.endTime, { hour: "2-digit", minute: "2-digit" })}
-                      &nbsp;·&nbsp;{ex.durationMins} mins
+  {formatLocalDatetime(ex.endTime, {
+                        weekday: "short", month: "short", day: "numeric",
+                        year: "numeric", hour: "2-digit", minute: "2-digit",
+                      })}                      &nbsp;·&nbsp;{ex.durationMins} mins
                       &nbsp;·&nbsp;{ex.questions?.length ?? 0} Qs in pool
                       {ex.questionsPerStudent
                         ? <>&nbsp;·&nbsp;<strong style={{ color: "#1a6ef5" }}>{ex.questionsPerStudent} per student</strong></>
