@@ -48,7 +48,30 @@ function parseBulkText(raw) {
   return parsed;
 }
 
-/* ── Class Tab pill (same style as StudentsSection) ────────── */
+/* ── Format a datetime string without timezone shift ── */
+function formatLocalDatetime(isoString, opts) {
+  if (!isoString) return "—";
+  // Strip the Z / offset so Date() treats it as local — avoids UTC conversion
+  const local = isoString.replace("Z", "").replace(/[+-]\d{2}:\d{2}$/, "");
+  return new Date(local).toLocaleString("en-US", opts);
+}
+
+/* ── Convert datetime-local value → ISO string for backend ── */
+function localInputToISO(localStr) {
+  if (!localStr) return null;
+  return new Date(localStr).toISOString();
+}
+
+/* ── Convert ISO string from backend → datetime-local input value ── */
+function isoToLocalInput(isoString) {
+  if (!isoString) return "";
+  // Render the stored time as if it's local (strip offset)
+  const local = isoString.replace("Z", "").replace(/[+-]\d{2}:\d{2}$/, "");
+  // datetime-local needs "YYYY-MM-DDTHH:MM"
+  return local.slice(0, 16);
+}
+
+/* ── Class Tab pill ── */
 function ClassTab({ label, count, active, onClick }) {
   return (
     <button
@@ -74,7 +97,7 @@ function ClassTab({ label, count, active, onClick }) {
   );
 }
 
-/* ── Question Builder ─────────────────────────────────────── */
+/* ── Question Builder ── */
 function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bulkError, setBulkErr }) {
   const [uploadState, setUploadState] = useState({});
 
@@ -291,7 +314,7 @@ function QuestionBuilder({ form, setForm, tab, setTab, bulkText, setBulkText, bu
   );
 }
 
-/* ── Results Modal ────────────────────────────────────────── */
+/* ── Results Modal ── */
 function ResultsModal({ exam, results, onClose }) {
   const avg    = results.length
     ? Math.round(results.reduce((s, r) => s + (r.percentage ?? 0), 0) / results.length) : 0;
@@ -389,7 +412,6 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
   const [list, setList]             = useState([]);
   const [fetching, setFetching]     = useState(true);
 
-  // ── NEW: active class tab (independent of selectedClass prop) ──
   const [activeClass, setActiveClass] = useState("all");
 
   const [showCreate, setCreate]     = useState(false);
@@ -413,8 +435,6 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
   const [toast, setToast]     = useState(null);
   const [togglingId, setTogId] = useState(null);
 
-  // When the selectedClass prop changes (dashboard class selector),
-  // sync the tab and pre-seed the create form
   useEffect(() => {
     setCreateForm(emptyForm(selectedClass));
     setActiveClass(selectedClass || "all");
@@ -435,8 +455,6 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
     load();
   }, []);
 
-  // ── Derive unique classes from the loaded exam list ──
-  // Sorted in school order so tabs always appear JSS 1 → SS 3
   const CLASS_ORDER = ["JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"];
   const classList = [...new Set(
     list.map((e) => e.className || e.class).filter(Boolean)
@@ -449,12 +467,11 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
     return a.localeCompare(b);
   });
 
-  // ── Filter by active tab (takes precedence over selectedClass prop) ──
   const visibleList = activeClass === "all"
     ? list
     : list.filter((e) => (e.className || e.class) === activeClass);
 
-  /* ── Validation helper ── */
+  /* ── Validation ── */
   function validateForm(form) {
     if (!form.title.trim()) { setToast({ msg: "Please enter an exam title.", type: "error" }); return false; }
     if (!form.startTime)    { setToast({ msg: "Please set a start time.", type: "error" }); return false; }
@@ -475,12 +492,15 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
     return true;
   }
 
-  /* ── Build payload ── */
+  /* ── Build payload — convert local datetime-local strings to ISO for backend ── */
   function buildPayload(form) {
     return {
       ...form,
       durationMins:        Number(form.durationMins),
       questionsPerStudent: form.questionsPerStudent !== "" ? Number(form.questionsPerStudent) : null,
+      // FIX: convert the datetime-local string (local time) to a proper ISO string
+      startTime: form.startTime ? new Date(form.startTime).toISOString() : null,
+      endTime:   form.endTime   ? new Date(form.endTime).toISOString()   : null,
       questions:           form.questions.map(({ question, options, correctAnswer, imageUrl }) =>
                              ({ question, options, correctAnswer, imageUrl: imageUrl || null })
                            ),
@@ -501,7 +521,6 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
       setCreateForm(emptyForm(selectedClass));
       setCreateBulk("");
       setCreateTab("manual");
-      // Auto-switch tab to the new exam's class
       if (created.className) setActiveClass(created.className);
     } catch (err) {
       setToast({ msg: err?.response?.data?.message || "Failed to create exam.", type: "error" });
@@ -510,9 +529,8 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
     }
   }
 
-  /* ── Open edit modal ── */
+  /* ── Open edit modal — FIX: use isoToLocalInput so the input shows the correct local time ── */
   function openEdit(exam) {
-    const toLocal = (iso) => iso ? iso.slice(0, 16) : "";
     setEditTarget(exam);
     setEditForm({
       title:               exam.title,
@@ -521,8 +539,8 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
       term:                exam.term,
       durationMins:        exam.durationMins,
       questionsPerStudent: exam.questionsPerStudent ?? "",
-      startTime:           toLocal(exam.startTime),
-      endTime:             toLocal(exam.endTime),
+      startTime:           isoToLocalInput(exam.startTime),
+      endTime:             isoToLocalInput(exam.endTime),
       questions:           exam.questions?.map((q) => ({
         question:      q.question,
         options:       [...(q.options ?? ["", "", "", ""])],
@@ -630,7 +648,6 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
 
   const isLoading = fetching || externalLoading;
 
-  /* ════════ RENDER ════════ */
   return (
     <div className={styles.section}>
 
@@ -704,7 +721,6 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
                     <p className={styles.itemTitle}>{ex.title}</p>
                     <p className={styles.itemMeta}>
                       {ex.subject}&nbsp;·&nbsp;
-                      {/* Show class badge — highlighted when viewing All Classes */}
                       <span style={{
                         padding: "1px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700,
                         background: activeClass === "all" ? "#eff6ff" : "transparent",
@@ -715,16 +731,13 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
                       &nbsp;·&nbsp;{ex.term}
                     </p>
                     <p className={styles.itemMeta}>
-                      {ex.startTime
-                        ? new Date(ex.startTime).toLocaleString("en-US", {
-                            weekday: "short", month: "short", day: "numeric",
-                            year: "numeric", hour: "2-digit", minute: "2-digit",
-                          })
-                        : "—"}
+                      {/* FIX: display using local time without UTC shift */}
+                      {formatLocalDatetime(ex.startTime, {
+                        weekday: "short", month: "short", day: "numeric",
+                        year: "numeric", hour: "2-digit", minute: "2-digit",
+                      })}
                       &nbsp;→&nbsp;
-                      {ex.endTime
-                        ? new Date(ex.endTime).toLocaleString("en-US", { hour: "2-digit", minute: "2-digit" })
-                        : "—"}
+                      {formatLocalDatetime(ex.endTime, { hour: "2-digit", minute: "2-digit" })}
                       &nbsp;·&nbsp;{ex.durationMins} mins
                       &nbsp;·&nbsp;{ex.questions?.length ?? 0} Qs in pool
                       {ex.questionsPerStudent
@@ -875,7 +888,7 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
   );
 }
 
-/* ── TopFields ───────────────────────────────────────────── */
+/* ── TopFields ── */
 function TopFields({ form, setForm, lockedClass }) {
   function setTop(field, value) { setForm((p) => ({ ...p, [field]: value })); }
 

@@ -20,7 +20,6 @@ const gradeSubmission = (submissionId, data) =>
 const createAssignment = (payload) =>
   axiosInstance.post("/api/assignments", payload);
 
-// ✅ NEW: update assignment API helper
 const updateAssignment = (id, payload) =>
   axiosInstance.patch(`/api/assignments/${id}`, payload);
 
@@ -44,11 +43,22 @@ const STATUS_META = {
 };
 
 function isOverdue(dateStr) { return dateStr && new Date(dateStr) < new Date(); }
+
 function formatDue(dateStr) {
   if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString("en-US", {
+  // FIX: treat the stored date as local to avoid UTC-midnight shift
+  const local = dateStr.replace("Z", "").replace(/[+-]\d{2}:\d{2}$/, "");
+  return new Date(local).toLocaleDateString("en-US", {
     month: "short", day: "numeric", year: "numeric",
   });
+}
+
+/* ── Normalize a date string to YYYY-MM-DD for date inputs ── */
+function toDateInputValue(dateStr) {
+  if (!dateStr) return "";
+  // Strip time portion and any timezone — keep just the date part
+  const local = dateStr.replace("Z", "").replace(/[+-]\d{2}:\d{2}$/, "");
+  return local.slice(0, 10);
 }
 
 /* ── Cloudinary upload ── */
@@ -174,9 +184,10 @@ function FileUploadZone({ onUploaded, currentFile, onClear }) {
 function SubmissionsPanel({ assignment, onClose }) {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading]         = useState(true);
-  const [gradeTarget, setGradeTarget] = useState(null);
+  const [gradeTarget, setGradeTarget] = useState(null); // null | submission object
   const [gradeForm, setGradeForm]     = useState({ grade: "", teacherRemark: "" });
   const [grading, setGrading]         = useState(false);
+  const [filter, setFilter]           = useState("all"); // "all" | "pending" | "graded"
   const [toast, setToast]             = useState(null);
 
   useEffect(() => {
@@ -194,112 +205,250 @@ function SubmissionsPanel({ assignment, onClose }) {
     if (!gradeForm.grade.trim()) { setToast({ msg: "Please enter a grade.", type: "error" }); return; }
     setGrading(true);
     try {
-      const res = await gradeSubmission(gradeTarget._id, gradeForm);
+      const res     = await gradeSubmission(gradeTarget._id, gradeForm);
       const updated = res?.data?.submission;
       setSubmissions((prev) =>
         prev.map((s) => s._id === gradeTarget._id
-          ? { ...s, grade: updated?.grade ?? gradeForm.grade, teacherRemark: updated?.teacherRemark ?? gradeForm.teacherRemark, status: "graded" }
+          ? {
+              ...s,
+              grade:         updated?.grade         ?? gradeForm.grade,
+              teacherRemark: updated?.teacherRemark ?? gradeForm.teacherRemark,
+              status:        "graded",
+            }
           : s
         )
       );
-      setToast({ msg: "Submission graded!", type: "success" });
+      setToast({ msg: gradeTarget.status === "graded" ? "Grade updated!" : "Submission graded!", type: "success" });
       setGradeTarget(null);
       setGradeForm({ grade: "", teacherRemark: "" });
-    } catch (err) { setToast({ msg: err?.response?.data?.message || "Grading failed.", type: "error" }); }
-    finally { setGrading(false); }
+    } catch (err) {
+      setToast({ msg: err?.response?.data?.message || "Grading failed.", type: "error" });
+    } finally { setGrading(false); }
   }
 
-  const gradedCount = submissions.filter((s) => s.status === "graded").length;
+  function openGradeModal(s) {
+    setGradeTarget(s);
+    setGradeForm({ grade: s.grade ?? "", teacherRemark: s.teacherRemark ?? "" });
+  }
+
+  const gradedCount  = submissions.filter((s) => s.status === "graded").length;
+  const pendingCount = submissions.length - gradedCount;
+
+  const visibleSubmissions = submissions.filter((s) => {
+    if (filter === "graded")  return s.status === "graded";
+    if (filter === "pending") return s.status !== "graded";
+    return true;
+  });
+
+  const isEditing = gradeTarget?.status === "graded";
 
   return (
     <>
-      <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.35)", zIndex:300 }} />
-      <div style={{ position:"fixed", top:0, right:0, width:"min(520px, 100vw)", height:"100vh", background:"#fff", zIndex:301, display:"flex", flexDirection:"column", boxShadow:"-4px 0 32px rgba(0,0,0,0.12)" }}>
+      {/* ── Backdrop ── */}
+      <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:300 }} />
+
+      {/* ── Drawer ── */}
+      <div style={{
+        position:"fixed", top:0, right:0,
+        width:"min(540px, 100vw)", height:"100vh",
+        background:"#fff", zIndex:301,
+        display:"flex", flexDirection:"column",
+        boxShadow:"-4px 0 40px rgba(0,0,0,0.14)",
+      }}>
+
+        {/* Header */}
         <div style={{ padding:"20px 24px", borderBottom:"1.5px solid #e2e8f0", display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12 }}>
           <div>
-            <h3 style={{ fontSize:16, fontWeight:700, color:"#0f172a", margin:"0 0 4px" }}>📋 Submissions</h3>
-            <p style={{ fontSize:12, color:"#64748b", margin:0 }}>{assignment.title}&nbsp;·&nbsp;{assignment.className}</p>
+            <h3 style={{ fontSize:16, fontWeight:700, color:"#0f172a", margin:"0 0 3px" }}>📋 Submissions</h3>
+            <p style={{ fontSize:12, color:"#64748b", margin:0 }}>
+              {assignment.title}&nbsp;·&nbsp;{assignment.className}
+            </p>
           </div>
           <button onClick={onClose} style={{ background:"none", border:"none", fontSize:20, color:"#94a3b8", cursor:"pointer", lineHeight:1, flexShrink:0, padding:"2px 6px" }}>✕</button>
         </div>
 
+        {/* Stats bar */}
         {!loading && (
-          <div style={{ display:"flex", gap:0, borderBottom:"1.5px solid #e2e8f0" }}>
+          <div style={{ display:"flex", borderBottom:"1.5px solid #e2e8f0" }}>
             {[
-              { label:"Total",   value: submissions.length,             color:"#1a6ef5" },
-              { label:"Graded",  value: gradedCount,                    color:"#10b981" },
-              { label:"Pending", value: submissions.length - gradedCount, color:"#f59e0b" },
-            ].map((s) => (
-              <div key={s.label} style={{ flex:1, padding:"12px 0", textAlign:"center", borderRight:"1px solid #e2e8f0" }}>
+              { key:"all",     label:"All",     value: submissions.length, color:"#1a6ef5" },
+              { key:"graded",  label:"Graded",  value: gradedCount,        color:"#10b981" },
+              { key:"pending", label:"Pending", value: pendingCount,       color:"#f59e0b" },
+            ].map((s, i, arr) => (
+              <button
+                key={s.key}
+                onClick={() => setFilter(s.key)}
+                style={{
+                  flex:1, padding:"13px 0", textAlign:"center",
+                  borderRight: i < arr.length - 1 ? "1px solid #e2e8f0" : "none",
+                  border:"none",
+                  borderBottom: filter === s.key ? `2.5px solid ${s.color}` : "2.5px solid transparent",
+                  background: filter === s.key ? (
+                    s.key === "graded"  ? "#f0fdf4" :
+                    s.key === "pending" ? "#fffbeb" : "#eff6ff"
+                  ) : "#fff",
+                  cursor:"pointer", transition:"all 0.15s",
+                }}
+              >
                 <p style={{ fontSize:20, fontWeight:800, color:s.color, margin:"0 0 2px" }}>{s.value}</p>
-                <p style={{ fontSize:11, color:"#94a3b8", margin:0 }}>{s.label}</p>
-              </div>
+                <p style={{ fontSize:11, color: filter === s.key ? s.color : "#94a3b8", fontWeight: filter === s.key ? 700 : 400, margin:0 }}>{s.label}</p>
+              </button>
             ))}
           </div>
         )}
 
-        <div style={{ flex:1, overflowY:"auto", padding:"16px 24px" }}>
+        {/* List */}
+        <div style={{ flex:1, overflowY:"auto", padding:"16px 20px", display:"flex", flexDirection:"column", gap:12 }}>
           {loading ? (
-            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-              {Array(3).fill(0).map((_, i) => (
-                <div key={i} style={{ height:90, borderRadius:12, background:"linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)", backgroundSize:"200% 100%", animation:"shimmer 1.4s infinite" }} />
-              ))}
-            </div>
-          ) : submissions.length === 0 ? (
+            Array(3).fill(0).map((_, i) => (
+              <div key={i} style={{ height:110, borderRadius:12, background:"linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)", backgroundSize:"200% 100%", animation:"shimmer 1.4s infinite" }} />
+            ))
+          ) : visibleSubmissions.length === 0 ? (
             <div style={{ textAlign:"center", padding:"48px 24px", color:"#94a3b8" }}>
-              <p style={{ fontSize:36, margin:"0 0 10px" }}>📭</p>
-              <p style={{ fontSize:14, margin:0 }}>No submissions yet.</p>
+              <p style={{ fontSize:36, margin:"0 0 10px" }}>
+                {filter === "graded" ? "🎓" : filter === "pending" ? "⏳" : "📭"}
+              </p>
+              <p style={{ fontSize:14, margin:0 }}>
+                {filter === "graded"  ? "No graded submissions yet." :
+                 filter === "pending" ? "No pending submissions — all graded!" :
+                 "No submissions yet."}
+              </p>
             </div>
           ) : (
-            submissions.map((s) => {
-              const meta     = STATUS_META[s.status] ?? STATUS_META.submitted;
+            visibleSubmissions.map((s) => {
               const isGraded = s.status === "graded";
+              const meta     = STATUS_META[s.status] ?? STATUS_META.submitted;
+
               return (
-                <div key={s._id} style={{ border:"1.5px solid #e2e8f0", borderRadius:12, padding:"14px 16px", marginBottom:10, background:"#fafbfc" }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10, marginBottom:10 }}>
+                <div key={s._id} style={{
+                  border: isGraded ? "1.5px solid #86efac" : "1.5px solid #e2e8f0",
+                  borderRadius:12, overflow:"hidden",
+                  background: isGraded ? "#fafffe" : "#fafbfc",
+                  transition:"border-color 0.2s",
+                }}>
+
+                  {/* ── Card header: avatar + name + status badge ── */}
+                  <div style={{ padding:"14px 16px 0", display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                      <div style={{ width:36, height:36, borderRadius:"50%", background:"linear-gradient(135deg,#1a6ef5,#0ea5e9)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontSize:14, fontWeight:700, flexShrink:0 }}>
+                      <div style={{
+                        width:38, height:38, borderRadius:"50%", flexShrink:0,
+                        background: isGraded
+                          ? "linear-gradient(135deg,#10b981,#059669)"
+                          : "linear-gradient(135deg,#1a6ef5,#0ea5e9)",
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        color:"#fff", fontSize:15, fontWeight:700,
+                      }}>
                         {(s.student?.name?.[0] ?? "?").toUpperCase()}
                       </div>
                       <div>
-                        <p style={{ fontSize:13, fontWeight:700, color:"#0f172a", margin:"0 0 1px" }}>{s.student?.name ?? "Unknown Student"}</p>
+                        <p style={{ fontSize:13, fontWeight:700, color:"#0f172a", margin:"0 0 1px" }}>
+                          {s.student?.name ?? "Unknown Student"}
+                        </p>
                         <p style={{ fontSize:11, color:"#94a3b8", margin:0 }}>
                           {s.student?.className ?? ""}
                           {s.student?.studentId && <>&nbsp;·&nbsp;ID: {s.student.studentId}</>}
                         </p>
                       </div>
                     </div>
-                    <span style={{ fontSize:11, fontWeight:700, padding:"3px 10px", borderRadius:99, color:meta.color, background:meta.bg, whiteSpace:"nowrap" }}>{meta.label}</span>
+                    <span style={{
+                      fontSize:11, fontWeight:700, padding:"3px 10px",
+                      borderRadius:99, whiteSpace:"nowrap",
+                      color:meta.color, background:meta.bg,
+                    }}>
+                      {isGraded ? "✔ Graded" : meta.label}
+                    </span>
                   </div>
 
-                  <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:8, padding:"10px 12px", marginBottom:10, fontSize:12 }}>
+                  {/* ── Submission content ── */}
+                  <div style={{ padding:"10px 16px", margin:"10px 16px 0", background:"#fff", border:"1px solid #e2e8f0", borderRadius:8, fontSize:12 }}>
                     {s.fileName ? (
-                      <a href={s.fileUrl} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:6, color:"#1a6ef5", fontWeight:600, textDecoration:"none", marginBottom:s.note ? 6 : 0 }}>
+                      <a href={s.fileUrl} target="_blank" rel="noreferrer"
+                        style={{ display:"inline-flex", alignItems:"center", gap:6, color:"#1a6ef5", fontWeight:600, textDecoration:"none" }}>
                         📎 {s.fileName}
                       </a>
                     ) : (
                       <p style={{ color:"#94a3b8", fontStyle:"italic", margin:0 }}>No file attached</p>
                     )}
-                    {s.note && <p style={{ color:"#475569", margin:s.fileName ? "6px 0 0" : 0 }}>💬 {s.note}</p>}
+                    {s.note && (
+                      <p style={{ color:"#475569", margin:"6px 0 0" }}>💬 {s.note}</p>
+                    )}
                     <p style={{ color:"#94a3b8", margin:"6px 0 0" }}>
                       Submitted&nbsp;
-                      {s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "—"}
+                      {s.createdAt
+                        ? new Date(s.createdAt).toLocaleString("en-US", { month:"short", day:"numeric", year:"numeric", hour:"2-digit", minute:"2-digit" })
+                        : "—"}
                     </p>
                   </div>
 
+                  {/* ── Graded result block — only shown when graded ── */}
                   {isGraded && (
-                    <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:8, padding:"8px 12px", fontSize:12, marginBottom:10 }}>
-                      <p style={{ fontWeight:700, color:"#15803d", margin:"0 0 2px" }}>✔ Grade: {s.grade}</p>
-                      {s.teacherRemark && <p style={{ color:"#166534", margin:0 }}>💬 {s.teacherRemark}</p>}
+                    <div style={{
+                      margin:"10px 16px 0",
+                      background:"linear-gradient(135deg,#f0fdf4,#dcfce7)",
+                      border:"1px solid #86efac", borderRadius:8,
+                      padding:"10px 14px",
+                    }}>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+                        <div>
+                          <p style={{ fontSize:11, fontWeight:700, color:"#15803d", margin:"0 0 2px", textTransform:"uppercase", letterSpacing:"0.04em" }}>
+                            Grade Awarded
+                          </p>
+                          <p style={{ fontSize:22, fontWeight:800, color:"#15803d", margin:0, lineHeight:1 }}>
+                            {s.grade}
+                          </p>
+                        </div>
+                        {s.teacherRemark && (
+                          <div style={{ flex:1, marginLeft:16, borderLeft:"2px solid #86efac", paddingLeft:12 }}>
+                            <p style={{ fontSize:11, fontWeight:700, color:"#166534", margin:"0 0 2px" }}>Teacher's Remark</p>
+                            <p style={{ fontSize:12, color:"#166534", margin:0, lineHeight:1.5 }}>{s.teacherRemark}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
-                  <button
-                    onClick={() => { setGradeTarget(s); setGradeForm({ grade: s.grade ?? "", teacherRemark: s.teacherRemark ?? "" }); }}
-                    style={{ fontSize:12, fontWeight:600, padding:"6px 14px", borderRadius:8, border:"1.5px solid #e2e8f0", background:isGraded ? "#f8fafc" : "#1a6ef5", color:isGraded ? "#475569" : "#fff", cursor:"pointer", transition:"all 0.15s" }}
-                  >
-                    {isGraded ? "✏️ Edit Grade" : "✔ Grade"}
-                  </button>
+                  {/* ── Action footer ── */}
+                  <div style={{
+                    padding:"12px 16px",
+                    display:"flex", alignItems:"center", justifyContent:"flex-end", gap:8,
+                    borderTop: isGraded ? "1px solid #bbf7d0" : "1px solid #f1f5f9",
+                    marginTop:10,
+                  }}>
+                    {isGraded ? (
+                      /* Already graded — show edit button clearly */
+                      <button
+                        onClick={() => openGradeModal(s)}
+                        style={{
+                          display:"flex", alignItems:"center", gap:6,
+                          padding:"7px 16px", borderRadius:8,
+                          border:"1.5px solid #86efac",
+                          background:"#fff", color:"#15803d",
+                          fontSize:12, fontWeight:700, cursor:"pointer",
+                          transition:"all 0.15s",
+                        }}
+                        onMouseOver={(e) => { e.currentTarget.style.background = "#f0fdf4"; }}
+                        onMouseOut={(e)  => { e.currentTarget.style.background = "#fff"; }}
+                      >
+                        ✏️ Edit Grade
+                      </button>
+                    ) : (
+                      /* Not yet graded — prominent grade button */
+                      <button
+                        onClick={() => openGradeModal(s)}
+                        style={{
+                          display:"flex", alignItems:"center", gap:6,
+                          padding:"7px 18px", borderRadius:8,
+                          border:"none", background:"#1a6ef5", color:"#fff",
+                          fontSize:12, fontWeight:700, cursor:"pointer",
+                          transition:"all 0.15s",
+                        }}
+                        onMouseOver={(e) => { e.currentTarget.style.background = "#1558c0"; }}
+                        onMouseOut={(e)  => { e.currentTarget.style.background = "#1a6ef5"; }}
+                      >
+                        ✔ Grade Submission
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })
@@ -307,27 +456,68 @@ function SubmissionsPanel({ assignment, onClose }) {
         </div>
       </div>
 
+      {/* ── Grade / Edit modal ── */}
       {gradeTarget && (
         <Modal
-          title={`Grade — ${gradeTarget.student?.name ?? "Student"}`}
-          onClose={() => setGradeTarget(null)}
+          title={isEditing
+            ? `Edit Grade — ${gradeTarget.student?.name ?? "Student"}`
+            : `Grade — ${gradeTarget.student?.name ?? "Student"}`}
+          onClose={() => { setGradeTarget(null); setGradeForm({ grade: "", teacherRemark: "" }); }}
           footer={
             <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-              <button style={{ padding:"9px 20px", borderRadius:10, border:"1.5px solid #e2e8f0", background:"#fff", color:"#64748b", fontSize:13, fontWeight:600, cursor:"pointer" }} onClick={() => setGradeTarget(null)}>Cancel</button>
-              <button style={{ padding:"9px 20px", borderRadius:10, border:"none", background:"#1a6ef5", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer", opacity:grading ? 0.6 : 1 }} disabled={grading} onClick={handleGrade}>{grading ? "Saving…" : "Save Grade"}</button>
+              <button
+                style={{ padding:"9px 20px", borderRadius:10, border:"1.5px solid #e2e8f0", background:"#fff", color:"#64748b", fontSize:13, fontWeight:600, cursor:"pointer" }}
+                onClick={() => { setGradeTarget(null); setGradeForm({ grade: "", teacherRemark: "" }); }}
+              >
+                Cancel
+              </button>
+              <button
+                style={{ padding:"9px 20px", borderRadius:10, border:"none", background: isEditing ? "#10b981" : "#1a6ef5", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer", opacity:grading ? 0.6 : 1 }}
+                disabled={grading}
+                onClick={handleGrade}
+              >
+                {grading ? "Saving…" : isEditing ? "Update Grade" : "Save Grade"}
+              </button>
             </div>
           }
         >
-          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+
+            {/* Show current grade when editing */}
+            {isEditing && (
+              <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:8, padding:"10px 14px" }}>
+                <p style={{ fontSize:11, fontWeight:700, color:"#15803d", margin:"0 0 2px", textTransform:"uppercase" }}>Current Grade</p>
+                <p style={{ fontSize:18, fontWeight:800, color:"#15803d", margin:0 }}>{gradeTarget.grade}</p>
+                {gradeTarget.teacherRemark && (
+                  <p style={{ fontSize:12, color:"#166534", margin:"4px 0 0" }}>💬 {gradeTarget.teacherRemark}</p>
+                )}
+              </div>
+            )}
+
             <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-              <label style={{ fontSize:12, fontWeight:700, color:"#475569" }}>Grade</label>
-              <input placeholder="e.g. A, B+, 85/100…" value={gradeForm.grade} onChange={(e) => setGradeForm((p) => ({ ...p, grade: e.target.value }))}
-                style={{ border:"1.5px solid #e2e8f0", borderRadius:8, padding:"9px 12px", fontSize:13, color:"#0f172a", outline:"none", fontFamily:"inherit" }} />
+              <label style={{ fontSize:12, fontWeight:700, color:"#475569" }}>
+                {isEditing ? "New Grade" : "Grade"}
+              </label>
+              <input
+                placeholder="e.g. A, B+, 85/100…"
+                value={gradeForm.grade}
+                onChange={(e) => setGradeForm((p) => ({ ...p, grade: e.target.value }))}
+                autoFocus
+                style={{ border:"1.5px solid #e2e8f0", borderRadius:8, padding:"9px 12px", fontSize:13, color:"#0f172a", outline:"none", fontFamily:"inherit" }}
+              />
             </div>
+
             <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-              <label style={{ fontSize:12, fontWeight:700, color:"#475569" }}>Remark <span style={{ fontWeight:400, color:"#94a3b8" }}>(optional)</span></label>
-              <textarea rows={3} placeholder="Feedback for the student…" value={gradeForm.teacherRemark} onChange={(e) => setGradeForm((p) => ({ ...p, teacherRemark: e.target.value }))}
-                style={{ border:"1.5px solid #e2e8f0", borderRadius:8, padding:"9px 12px", fontSize:13, color:"#0f172a", outline:"none", fontFamily:"inherit", resize:"vertical" }} />
+              <label style={{ fontSize:12, fontWeight:700, color:"#475569" }}>
+                Remark <span style={{ fontWeight:400, color:"#94a3b8" }}>(optional)</span>
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Feedback for the student…"
+                value={gradeForm.teacherRemark}
+                onChange={(e) => setGradeForm((p) => ({ ...p, teacherRemark: e.target.value }))}
+                style={{ border:"1.5px solid #e2e8f0", borderRadius:8, padding:"9px 12px", fontSize:13, color:"#0f172a", outline:"none", fontFamily:"inherit", resize:"vertical" }}
+              />
             </div>
           </div>
         </Modal>
@@ -387,7 +577,6 @@ function AssignmentFormModal({ title, form, setF, uploadedFile, setUploadedFile,
       <div
         style={{
           display:"flex", flexDirection:"column", gap:16,
-          // ✅ Scroll inside modal when content overflows on small screens
           maxHeight:"70vh", overflowY:"auto", paddingRight:4,
         }}
       >
@@ -476,10 +665,9 @@ export default function AssignmentsSection({ assignments: initList = [], loading
   const [toast, setToast]               = useState(null);
   const [viewingSubs, setViewingSubs]   = useState(null);
 
-  // ✅ NEW: edit state
-  const [editTarget, setEditTarget]     = useState(null); // the assignment being edited
+  const [editTarget, setEditTarget]     = useState(null);
   const [editForm, setEditForm]         = useState(EMPTY_FORM);
-  const [editFile, setEditFile]         = useState(null); // Cloudinary result for edit
+  const [editFile, setEditFile]         = useState(null);
   const [editSubmitting, setEditSub]    = useState(false);
 
   useEffect(() => {
@@ -507,8 +695,12 @@ export default function AssignmentsSection({ assignments: initList = [], loading
     setSub(true);
     try {
       const payload = {
-        title: form.title, subject: form.subject, className: form.className,
-        dueDate: form.dueDate, description: form.description,
+        title:       form.title,
+        subject:     form.subject,
+        className:   form.className,
+        // FIX: send as a proper ISO string so the backend stores it correctly
+        dueDate:     form.dueDate ? new Date(form.dueDate).toISOString() : undefined,
+        description: form.description,
         attachmentUrl:  uploadedFile?.url   || undefined,
         attachmentName: uploadedFile?.name  || undefined,
         attachmentType: uploadedFile?.type  || undefined,
@@ -530,10 +722,10 @@ export default function AssignmentsSection({ assignments: initList = [], loading
       title:       assignment.title       ?? "",
       subject:     assignment.subject     ?? SUBJECTS[0],
       className:   assignment.className   ?? CLASSES[0],
-      dueDate:     assignment.dueDate     ? assignment.dueDate.slice(0, 10) : "",
+      // FIX: use toDateInputValue so the date input shows the correct stored date
+      dueDate:     toDateInputValue(assignment.dueDate),
       description: assignment.description ?? "",
     });
-    // Pre-populate the file zone if the assignment already has an attachment
     setEditFile(
       assignment.attachmentUrl
         ? {
@@ -562,9 +754,9 @@ export default function AssignmentsSection({ assignments: initList = [], loading
         title:       editForm.title,
         subject:     editForm.subject,
         className:   editForm.className,
-        dueDate:     editForm.dueDate,
+        // FIX: convert YYYY-MM-DD date input value to ISO string for the backend
+        dueDate:     editForm.dueDate ? new Date(editForm.dueDate).toISOString() : null,
         description: editForm.description,
-        // If teacher cleared the file, send nulls; if unchanged or re-uploaded, send the result
         attachmentUrl:  editFile?.url   || null,
         attachmentName: editFile?.name  || null,
         attachmentType: editFile?.type  || null,
@@ -650,8 +842,6 @@ export default function AssignmentsSection({ assignments: initList = [], loading
                   <button className={styles.actionBtn} onClick={() => setViewingSubs(a)}>
                     👁 Submissions
                   </button>
-
-                  {/* ✅ NEW: Edit button */}
                   <button
                     className={styles.actionBtn}
                     onClick={() => openEdit(a)}
@@ -659,7 +849,6 @@ export default function AssignmentsSection({ assignments: initList = [], loading
                   >
                     ✏️ Edit
                   </button>
-
                   <button
                     className={`${styles.actionBtn} ${styles.deleteBtn}`}
                     onClick={() => handleDelete(a._id)}
@@ -695,7 +884,7 @@ export default function AssignmentsSection({ assignments: initList = [], loading
       {/* ── Edit modal ── */}
       {editTarget && (
         <AssignmentFormModal
-          title={`Edit Assignment`}
+          title="Edit Assignment"
           form={editForm}
           setF={setEF}
           uploadedFile={editFile}

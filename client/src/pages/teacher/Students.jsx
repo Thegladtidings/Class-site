@@ -87,23 +87,12 @@ function Avatar({ name, profileImage, size = 40, fontSize = 15, border }) {
   );
 }
 
-/* ─── helpers ────────────────────────────────────────────────── */
-function generateStudentId() {
-  const year    = new Date().getFullYear().toString().slice(-2);
-  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  const prefix  = letters[Math.floor(Math.random() * letters.length)] +
-                  letters[Math.floor(Math.random() * letters.length)];
-  const digits  = String(Math.floor(Math.random() * 9000) + 1000);
-  return `STU-${year}${prefix}${digits}`;
-}
 
 /* ─── Register Student Modal ────────────────────────────────── */
 function RegisterModal({ onClose, onSuccess }) {
   const [form, setForm] = useState(() => ({
     name: "", email: "", password: "", confirm: "",
-    className: "", gender: "",
-    studentId: generateStudentId(),
-  }));
+    className: "", gender: "" }));
   const [error, setError]     = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -118,9 +107,9 @@ function RegisterModal({ onClose, onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(""); setSuccess("");
-    const { name, email, password, confirm, className, gender, studentId } = form;
+    const { name, email, password, confirm, className, gender } = form;
 
-    if (!name || !email || !password || !confirm || !className || !gender || !studentId)
+    if (!name || !email || !password || !confirm || !className || !gender)
       return setError("Please fill in all fields.");
     if (password !== confirm)
       return setError("Passwords do not match.");
@@ -130,8 +119,8 @@ function RegisterModal({ onClose, onSuccess }) {
     setLoading(true);
     try {
       await axios.post(`${API_BASE}/api/students/register`, {
-        name, email, password, className, gender, studentId,
-      });
+        name, email, password, className, gender
+            });
       setSuccess("Student account created successfully!");
       setTimeout(() => { onClose(); onSuccess?.(); }, 1800);
     } catch (err) {
@@ -258,7 +247,7 @@ function RegisterModal({ onClose, onSuccess }) {
             </div>
           )}
 
-          {/* Name + Student ID row */}
+          {/* Name */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             {field("reg-name", "Full Name", "👤", {
               type: "text", placeholder: "e.g. Amara Obi",
@@ -266,51 +255,7 @@ function RegisterModal({ onClose, onSuccess }) {
               required: true, autoComplete: "off",
             })}
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{
-                fontSize: 12, fontWeight: 700, color: "#475569",
-                letterSpacing: "0.04em", textTransform: "uppercase",
-              }}>
-                Student ID{" "}
-                <span style={{
-                  fontWeight: 400, color: "#94a3b8",
-                  textTransform: "none", letterSpacing: 0, fontSize: 11,
-                }}>(auto)</span>
-              </label>
-              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                <span style={{
-                  position: "absolute", left: 12, fontSize: 14,
-                  color: "#94a3b8", pointerEvents: "none", userSelect: "none",
-                }}>#</span>
-                <input
-                  readOnly
-                  value={form.studentId}
-                  style={{
-                    width: "100%", paddingLeft: 34, paddingRight: 44,
-                    paddingTop: 10, paddingBottom: 10, borderRadius: 10,
-                    border: "1.5px solid #e2e8f0", background: "#f1f5f9",
-                    fontSize: 12, fontWeight: 700, color: "#334155",
-                    outline: "none", boxSizing: "border-box",
-                    letterSpacing: "0.05em", cursor: "default",
-                  }}
-                />
-                <button
-                  type="button"
-                  title="Regenerate ID"
-                  onClick={() => setForm((f) => ({ ...f, studentId: generateStudentId() }))}
-                  style={{
-                    position: "absolute", right: 8,
-                    background: "#e2e8f0", border: "none", borderRadius: 7,
-                    width: 28, height: 28, cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 13, transition: "background 0.15s",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#cbd5e1")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "#e2e8f0")}
-                >🔄</button>
-              </div>
-            </div>
-          </div>
+               </div>
 
           {/* Email */}
           {field("reg-email", "Email Address", "✉", {
@@ -385,9 +330,9 @@ function RegisterModal({ onClose, onSuccess }) {
                   }}
                 >
                   <option value="">Select…</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
             </div>

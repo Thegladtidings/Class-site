@@ -9,7 +9,7 @@ const teacherSchema = new mongoose.Schema({
   classNames:   [{ type: String }],             // classes this teacher handles
   profileImage: { type: String, default: null },
   employeeId:   { type: String, unique: true, sparse: true },
-  gender:       { type: String, enum: ["male", "female"] },
+  gender:       { type: String, enum: ["Male", "Female"] },
   isActive:     { type: Boolean, default: true },
 }, { timestamps: true });
 

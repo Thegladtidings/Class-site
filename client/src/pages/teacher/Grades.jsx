@@ -6,26 +6,29 @@ import axiosInstance from "../api/Axiosinstance.js";
 
 /* ── API helpers ───────────────────────────────── */
 const api = {
-  getStudentsByClass : (cls)         => axiosInstance.get(`/api/grades/students?className=${encodeURIComponent(cls)}`),
-  getGrades          : (params = {}) => axiosInstance.get("/api/grades/teacher", { params }),
-  createGrade        : (data)        => axiosInstance.post("/api/grades/teacher", data),
-  updateGrade        : (id, data)    => axiosInstance.patch(`/api/grades/teacher/${id}`, data),
-  deleteGrade        : (id)          => axiosInstance.delete(`/api/grades/teacher/${id}`),
+  getSubjects        : ()              => axiosInstance.get("/api/subjects"),
+  getStudentsByClass : (cls)           => axiosInstance.get(`/api/grades/students?className=${encodeURIComponent(cls)}`),
+  getGrades          : (params = {})   => axiosInstance.get("/api/grades/teacher", { params }),
+  createGrade        : (data)          => axiosInstance.post("/api/grades/teacher", data),
+  updateGrade        : (id, data)      => axiosInstance.patch(`/api/grades/teacher/${id}`, data),
+  deleteGrade        : (id)            => axiosInstance.delete(`/api/grades/teacher/${id}`),
 };
 
 /* ── Constants ─────────────────────────────────── */
-const CLASSES  = ["JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"];
-const SUBJECTS = ["Mathematics", "Further Mathematics", "English", "Physics", "Chemistry", "Biology"];
-const TERMS    = ["First Term", "Second Term", "Third Term"];
+const CLASSES = ["JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"];
+const TERMS   = ["First Term", "Second Term", "Third Term"];
 
 const EMPTY_FORM = {
   student:    "",
-  subject:    SUBJECTS[0],
+  subject:    "",
   term:       TERMS[0],
   week:       "",
   score:      "",
   totalScore: "100",
   remarks:    "",
+  /* convert-to-over */
+  convertEnabled: false,
+  convertTarget:  "",
 };
 
 /* ── Grade letter from percentage ──────────────── */
@@ -37,18 +40,50 @@ function gradeFromPct(pct) {
   return           { label: "F", color: "#ef4444", bg: "#fef2f2" };
 }
 
+/* ── Convert score helper ──────────────────────── */
+// Takes raw score/total and maps it to a new total.
+// e.g. 10/50 → over 10 = 2/10
+function convertScore(score, total, target) {
+  const s = Number(score);
+  const t = Number(total);
+  const tgt = Number(target);
+  if (!s || !t || !tgt || t === 0) return null;
+  const converted = parseFloat(((s / t) * tgt).toFixed(2));
+  return { converted, target: tgt };
+}
+
 /* ════════════════════════════════════════════════
    GRADE FORM MODAL
-   Used for both create and edit.
 ════════════════════════════════════════════════ */
-function GradeFormModal({ students, initial, onSave, onClose, saving }) {
-  const [form, setForm] = useState(initial ?? EMPTY_FORM);
+function GradeFormModal({ subjects, students, initial, onSave, onClose, saving }) {
+  const [form, setForm] = useState(initial ?? { ...EMPTY_FORM, subject: subjects[0]?.name ?? "" });
   const set = (k, v)   => setForm((p) => ({ ...p, [k]: v }));
 
-  const pct = form.score && form.totalScore
+  /* Live percentage from raw score */
+  const rawPct = form.score && form.totalScore
     ? Math.round((Number(form.score) / Number(form.totalScore)) * 100)
     : null;
-  const grade = pct != null ? gradeFromPct(pct) : null;
+  const grade = rawPct != null ? gradeFromPct(rawPct) : null;
+
+  /* Conversion preview */
+  const conversion = form.convertEnabled && form.score && form.totalScore && form.convertTarget
+    ? convertScore(form.score, form.totalScore, form.convertTarget)
+    : null;
+
+  /* What actually gets saved — converted or raw */
+  const effectiveScore = conversion
+    ? { score: conversion.converted, totalScore: conversion.target }
+    : { score: Number(form.score),   totalScore: Number(form.totalScore) };
+
+  function handleSave() {
+    onSave({ ...form, ...effectiveScore });
+  }
+
+  const inputStyle = {
+    border: "1.5px solid #e2e8f0", borderRadius: 8,
+    padding: "9px 12px", fontSize: 13, outline: "none", width: "100%",
+    boxSizing: "border-box",
+  };
 
   return (
     <Modal
@@ -74,7 +109,7 @@ function GradeFormModal({ students, initial, onSave, onClose, saving }) {
               opacity: saving ? 0.6 : 1,
             }}
             disabled={saving}
-            onClick={() => onSave(form)}
+            onClick={handleSave}
           >
             {saving ? "Saving…" : initial?.isEdit ? "Save Changes" : "Add Grade"}
           </button>
@@ -83,17 +118,14 @@ function GradeFormModal({ students, initial, onSave, onClose, saving }) {
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-        {/* Student — only shown when creating */}
+        {/* Student — only when creating */}
         {!initial?.isEdit && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <label style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>Student</label>
             <select
               value={form.student}
               onChange={(e) => set("student", e.target.value)}
-              style={{
-                border: "1.5px solid #e2e8f0", borderRadius: 8,
-                padding: "9px 12px", fontSize: 13, outline: "none",
-              }}
+              style={inputStyle}
             >
               <option value="">Select student…</option>
               {students.map((s) => (
@@ -112,9 +144,10 @@ function GradeFormModal({ students, initial, onSave, onClose, saving }) {
             <select
               value={form.subject}
               onChange={(e) => set("subject", e.target.value)}
-              style={{ border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "9px 12px", fontSize: 13, outline: "none" }}
+              style={inputStyle}
             >
-              {SUBJECTS.map((s) => <option key={s}>{s}</option>)}
+              {subjects.length === 0 && <option value="">Loading…</option>}
+              {subjects.map((s) => <option key={s._id} value={s.name}>{s.name}</option>)}
             </select>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -122,7 +155,7 @@ function GradeFormModal({ students, initial, onSave, onClose, saving }) {
             <select
               value={form.term}
               onChange={(e) => set("term", e.target.value)}
-              style={{ border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "9px 12px", fontSize: 13, outline: "none" }}
+              style={inputStyle}
             >
               {TERMS.map((t) => <option key={t}>{t}</option>)}
             </select>
@@ -134,31 +167,142 @@ function GradeFormModal({ students, initial, onSave, onClose, saving }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <label style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>Score</label>
             <input
-              type="number" min={0} placeholder="e.g. 75"
+              type="number" min={0} placeholder="e.g. 10"
               value={form.score}
               onChange={(e) => set("score", e.target.value)}
-              style={{ border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "9px 12px", fontSize: 13, outline: "none" }}
+              style={inputStyle}
             />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <label style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>Out of</label>
             <input
-              type="number" min={1} placeholder="e.g. 100"
+              type="number" min={1} placeholder="e.g. 50"
               value={form.totalScore}
               onChange={(e) => set("totalScore", e.target.value)}
-              style={{ border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "9px 12px", fontSize: 13, outline: "none" }}
+              style={inputStyle}
             />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>Week <span style={{ color: "#94a3b8", fontWeight: 400 }}>(opt)</span></label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>
+              Week <span style={{ color: "#94a3b8", fontWeight: 400 }}>(opt)</span>
+            </label>
             <input
               type="number" min={1} max={15} placeholder="e.g. 3"
               value={form.week}
               onChange={(e) => set("week", e.target.value)}
-              style={{ border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "9px 12px", fontSize: 13, outline: "none" }}
+              style={inputStyle}
             />
           </div>
         </div>
+
+        {/* ── Convert to over ───────────────────────── */}
+        <div style={{
+          border: "1.5px solid #e2e8f0", borderRadius: 10,
+          overflow: "hidden",
+        }}>
+          {/* Toggle header */}
+          <button
+            onClick={() => set("convertEnabled", !form.convertEnabled)}
+            style={{
+              width: "100%", display: "flex", alignItems: "center",
+              justifyContent: "space-between",
+              padding: "10px 14px", background: form.convertEnabled ? "#eff6ff" : "#f8fafc",
+              border: "none", cursor: "pointer",
+              borderBottom: form.convertEnabled ? "1.5px solid #e2e8f0" : "none",
+              transition: "background 0.15s",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 15 }}>⇄</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>
+                Convert to over
+              </span>
+              <span style={{
+                fontSize: 11, padding: "2px 8px", borderRadius: 99,
+                background: "#dbeafe", color: "#1a6ef5", fontWeight: 600,
+              }}>
+                optional
+              </span>
+            </div>
+            {/* Toggle pill */}
+            <div style={{
+              width: 36, height: 20, borderRadius: 99, position: "relative",
+              background: form.convertEnabled ? "#1a6ef5" : "#cbd5e1",
+              transition: "background 0.2s", flexShrink: 0,
+            }}>
+              <div style={{
+                position: "absolute", top: 2, borderRadius: "50%",
+                width: 16, height: 16, background: "#fff",
+                left: form.convertEnabled ? 18 : 2,
+                transition: "left 0.2s",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+              }} />
+            </div>
+          </button>
+
+          {/* Expanded body */}
+          {form.convertEnabled && (
+            <div style={{ padding: "14px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                {/* Source preview */}
+                <div style={{
+                  flex: 1, minWidth: 120, padding: "8px 12px",
+                  background: "#f1f5f9", borderRadius: 8,
+                  fontSize: 13, color: "#64748b",
+                }}>
+                  <span style={{ fontWeight: 700, color: "#0f172a" }}>
+                    {form.score || "?"} / {form.totalScore || "?"}
+                  </span>
+                  <span style={{ marginLeft: 4 }}>original</span>
+                </div>
+
+                <span style={{ fontSize: 18, color: "#94a3b8" }}>→</span>
+
+                {/* Target input */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 100 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: "#475569" }}>
+                    Convert to over
+                  </label>
+                  <input
+                    type="number" min={1} placeholder="e.g. 10"
+                    value={form.convertTarget}
+                    onChange={(e) => set("convertTarget", e.target.value)}
+                    style={{
+                      border: "1.5px solid #1a6ef5", borderRadius: 8,
+                      padding: "8px 10px", fontSize: 13, outline: "none",
+                      width: "100%", boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+
+                {/* Converted result */}
+                {conversion && (
+                  <>
+                    <span style={{ fontSize: 18, color: "#94a3b8" }}>=</span>
+                    <div style={{
+                      padding: "8px 14px", borderRadius: 8,
+                      background: "#f0fdf4", border: "1.5px solid #10b98140",
+                    }}>
+                      <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#10b981" }}>
+                        {conversion.converted} / {conversion.target}
+                      </p>
+                      <p style={{ margin: 0, fontSize: 11, color: "#64748b" }}>
+                        will be saved
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Explanation note */}
+              <p style={{ margin: "10px 0 0", fontSize: 11, color: "#94a3b8", lineHeight: 1.5 }}>
+                The converted score will be saved instead of the original.
+                The grade percentage stays the same — only the scale changes.
+              </p>
+            </div>
+          )}
+        </div>
+        {/* ── End convert-to-over ───────────────────── */}
 
         {/* Live grade preview */}
         {grade && (
@@ -177,10 +321,13 @@ function GradeFormModal({ students, initial, onSave, onClose, saving }) {
             </span>
             <div>
               <p style={{ fontSize: 14, fontWeight: 700, color: grade.color, margin: 0 }}>
-                {pct}% — Grade {grade.label}
+                {rawPct}% — Grade {grade.label}
               </p>
               <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>
-                {form.score} out of {form.totalScore} marks
+                {conversion
+                  ? `Saves as ${conversion.converted} / ${conversion.target}`
+                  : `${form.score} out of ${form.totalScore} marks`
+                }
               </p>
             </div>
           </div>
@@ -199,7 +346,8 @@ function GradeFormModal({ students, initial, onSave, onClose, saving }) {
             style={{
               border: "1.5px solid #e2e8f0", borderRadius: 8,
               padding: "9px 12px", fontSize: 13, outline: "none",
-              fontFamily: "inherit", resize: "vertical",
+              fontFamily: "inherit", resize: "vertical", width: "100%",
+              boxSizing: "border-box",
             }}
           />
         </div>
@@ -212,6 +360,10 @@ function GradeFormModal({ students, initial, onSave, onClose, saving }) {
    MAIN — GradesSection
 ════════════════════════════════════════════════ */
 export default function GradesSection() {
+  /* ── Subjects (fetched globally) ── */
+  const [subjects,        setSubjects]        = useState([]);
+  const [subjectsLoading, setSubjectsLoading] = useState(true);
+
   /* ── Class + student selection ── */
   const [selectedClass,    setSelectedClass]    = useState("");
   const [students,         setStudents]         = useState([]);
@@ -232,6 +384,14 @@ export default function GradesSection() {
   const [saving,     setSaving]     = useState(false);
 
   const [toast, setToast] = useState(null);
+
+  /* ── Fetch subjects once on mount ── */
+  useEffect(() => {
+    api.getSubjects()
+      .then((r) => setSubjects(r?.data?.subjects ?? []))
+      .catch(() => setToast({ msg: "Could not load subjects.", type: "error" }))
+      .finally(() => setSubjectsLoading(false));
+  }, []);
 
   /* ── Load students when class selected ── */
   useEffect(() => {
@@ -264,9 +424,9 @@ export default function GradesSection() {
 
   /* ── Create grade ── */
   async function handleCreate(form) {
-    if (!form.student)   return setToast({ msg: "Please select a student.", type: "error" });
-    if (!form.score)     return setToast({ msg: "Please enter a score.",   type: "error" });
-    if (!form.totalScore) return setToast({ msg: "Please enter the total score.", type: "error" });
+    if (!form.student)    return setToast({ msg: "Please select a student.",        type: "error" });
+    if (!form.score)      return setToast({ msg: "Please enter a score.",            type: "error" });
+    if (!form.totalScore) return setToast({ msg: "Please enter the total score.",   type: "error" });
 
     setSaving(true);
     try {
@@ -274,8 +434,8 @@ export default function GradesSection() {
         student:    form.student,
         subject:    form.subject,
         term:       form.term,
-        week:       form.week    ? Number(form.week)       : undefined,
-        score:      Number(form.score),
+        week:       form.week ? Number(form.week) : undefined,
+        score:      Number(form.score),       // already converted if toggle was on
         totalScore: Number(form.totalScore),
         remarks:    form.remarks || undefined,
       });
@@ -339,6 +499,12 @@ export default function GradesSection() {
   const passing = filtered.filter((g) => Math.round((g.score / g.totalScore) * 100) >= 50).length;
   const atRisk  = filtered.filter((g) => Math.round((g.score / g.totalScore) * 100) < 50).length;
 
+  /* ── Initial form for add modal ── */
+  const emptyForm = {
+    ...EMPTY_FORM,
+    subject: subjects[0]?.name ?? "",
+  };
+
   /* ════════════════════════════════════════════
      RENDER
   ════════════════════════════════════════════ */
@@ -354,10 +520,7 @@ export default function GradesSection() {
           </p>
         </div>
         {selectedClass && (
-          <button
-            className={styles.primaryBtn}
-            onClick={() => setShowAdd(true)}
-          >
+          <button className={styles.primaryBtn} onClick={() => setShowAdd(true)}>
             + Add Grade
           </button>
         )}
@@ -396,13 +559,12 @@ export default function GradesSection() {
         </div>
       </div>
 
-      {/* ── Step 2: Filters + search (shown after class selected) ── */}
+      {/* ── Step 2: Filters + search ── */}
       {selectedClass && (
         <div style={{
           display: "flex", gap: 10, flexWrap: "wrap",
           marginBottom: 20, alignItems: "center",
         }}>
-          {/* Search */}
           <div style={{ position: "relative", flex: "1 1 200px" }}>
             <span style={{
               position: "absolute", left: 12, top: "50%",
@@ -423,7 +585,7 @@ export default function GradesSection() {
             />
           </div>
 
-          {/* Subject filter */}
+          {/* Subject filter — built from fetched subjects */}
           <select
             value={filterSubject}
             onChange={(e) => setFilterSubject(e.target.value)}
@@ -434,10 +596,9 @@ export default function GradesSection() {
             }}
           >
             <option value="All">All Subjects</option>
-            {SUBJECTS.map((s) => <option key={s}>{s}</option>)}
+            {subjects.map((s) => <option key={s._id} value={s.name}>{s.name}</option>)}
           </select>
 
-          {/* Term filter */}
           <select
             value={filterTerm}
             onChange={(e) => setFilterTerm(e.target.value)}
@@ -460,9 +621,9 @@ export default function GradesSection() {
           gap: 12, marginBottom: 20,
         }}>
           {[
-            { label: "Class Average", value: avg != null ? `${avg}%` : "—", color: "#1a6ef5", bg: "#eff6ff" },
-            { label: "Passing",       value: passing,                         color: "#10b981", bg: "#f0fdf4" },
-            { label: "At Risk (<50%)", value: atRisk,                         color: "#ef4444", bg: "#fef2f2" },
+            { label: "Class Average",  value: avg != null ? `${avg}%` : "—", color: "#1a6ef5", bg: "#eff6ff" },
+            { label: "Passing",        value: passing,                         color: "#10b981", bg: "#f0fdf4" },
+            { label: "At Risk (<50%)", value: atRisk,                          color: "#ef4444", bg: "#fef2f2" },
           ].map((s) => (
             <div key={s.label} style={{
               textAlign: "center", padding: "14px 10px",
@@ -502,8 +663,6 @@ export default function GradesSection() {
             return (
               <div key={g._id} className={styles.itemCard}>
                 <div className={styles.itemCardHead}>
-
-                  {/* Student + meta */}
                   <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
                     <div style={{
                       width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
@@ -519,7 +678,7 @@ export default function GradesSection() {
                       </p>
                       <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>
                         {g.subject}&nbsp;·&nbsp;{g.term}
-                        {g.week   && <>&nbsp;·&nbsp;Week {g.week}</>}
+                        {g.week            && <>&nbsp;·&nbsp;Week {g.week}</>}
                         {g.student?.studentId && <>&nbsp;·&nbsp;ID: {g.student.studentId}</>}
                       </p>
                       {g.remarks && (
@@ -530,7 +689,6 @@ export default function GradesSection() {
                     </div>
                   </div>
 
-                  {/* Score + grade badge */}
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
                     <p style={{ fontSize: 24, fontWeight: 900, color: grade.color, margin: "0 0 4px" }}>
                       {pct}%
@@ -546,7 +704,6 @@ export default function GradesSection() {
                   </div>
                 </div>
 
-                {/* Progress bar */}
                 <div style={{
                   height: 6, borderRadius: 99, background: "#e2e8f0",
                   overflow: "hidden", margin: "12px 0 4px",
@@ -569,11 +726,13 @@ export default function GradesSection() {
                     <button
                       onClick={() => setEditTarget({
                         ...g,
-                        isEdit:     true,
-                        score:      String(g.score),
-                        totalScore: String(g.totalScore),
-                        week:       g.week ? String(g.week) : "",
-                        remarks:    g.remarks ?? "",
+                        isEdit:         true,
+                        score:          String(g.score),
+                        totalScore:     String(g.totalScore),
+                        week:           g.week ? String(g.week) : "",
+                        remarks:        g.remarks ?? "",
+                        convertEnabled: false,
+                        convertTarget:  "",
                       })}
                       style={{
                         fontSize: 12, fontWeight: 600,
@@ -608,8 +767,9 @@ export default function GradesSection() {
       {/* ── Add modal ── */}
       {showAdd && (
         <GradeFormModal
+          subjects={subjectsLoading ? [] : subjects}
           students={studentsLoading ? [] : students}
-          initial={EMPTY_FORM}
+          initial={emptyForm}
           onSave={handleCreate}
           onClose={() => setShowAdd(false)}
           saving={saving}
@@ -619,6 +779,7 @@ export default function GradesSection() {
       {/* ── Edit modal ── */}
       {editTarget && (
         <GradeFormModal
+          subjects={subjects}
           students={students}
           initial={editTarget}
           onSave={handleUpdate}

@@ -8,6 +8,7 @@ import assignmentRoutes from './routes/assignmentRoute.js';
 import examRoutes       from './routes/examRoute.js';
 import announcementRoutes from './routes/announcementRoute.js';
 import gradeRoutes from './routes/gradeRoute.js';
+import subjectRoutes from './routes/subjectRoutes.js';
 
 configDotenv();
 
@@ -40,6 +41,7 @@ app.use('/api/assignments', assignmentRoutes);
 app.use('/api/exams',       examRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/grades', gradeRoutes);
+app.use('/api/subjects', subjectRoutes);
 
 app.get('/', (req, res) => res.send('School API is running ✅'));
 

@@ -7,7 +7,6 @@ const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
 // LOGIN
 export const studentLogin = async (req, res) => {
   try {
-    console.log("Login request body:", req.body); // Debug log
     const { email, password } = req.body;
 
     const student = await Student.findOne({ email });
@@ -64,13 +63,13 @@ export const registerStudent = async (req, res) => {
     const newStudent = new Student({
       name, email, password: hashedPassword, className, gender, studentId,
     });
-
+console.log("New student to be saved:", newStudent); // Debug log
     const student = await newStudent.save();
     const { password: _, ...studentData } = student.toObject();
     res.status(201).json({ message: "Student registered successfully", student: studentData });
-  } catch (err) {
-    res.status(500).json({ message: "Error registering student", error: err.message });
-  }
+} catch (err) {
+  res.status(500).json({ message: "Error registering student", error: err.message });
+}
 };
 // UPDATE PROFILE (student updates their own profile)
 // NOTE: `name` is intentionally excluded — it cannot be changed after registration.
