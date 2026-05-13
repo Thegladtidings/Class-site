@@ -42,7 +42,7 @@ export function useTeacherData() {
   const exams         = useFetch(getExams);
   const grades        = useFetch(getGrades);
   const announcements = useFetch(getAnnouncements);
-
+  
   // Normalize each list — handle whatever key the API wraps data in
   const studentList       = Array.isArray(students.data?.students)      ? students.data.students           : Array.isArray(students.data)      ? students.data      : [];
   const assignmentList    = Array.isArray(assignments.data?.assignments) ? assignments.data.assignments     : Array.isArray(assignments.data)   ? assignments.data   : [];
@@ -50,16 +50,19 @@ export function useTeacherData() {
   const gradeList         = Array.isArray(grades.data?.grades)          ? grades.data.grades               : Array.isArray(grades.data)        ? grades.data        : [];
   const announcementList  = Array.isArray(announcements.data?.announcements) ? announcements.data.announcements : Array.isArray(announcements.data) ? announcements.data : [];
 
+  const now = new Date();
   // Stats
   const classAverage = studentList.length
-    ? Math.round(
-        studentList.reduce((sum, s) => sum + (s.average || 0), 0) / studentList.length
+  ? Math.round(
+    studentList.reduce((sum, s) => sum + (s.average || 0), 0) / studentList.length
       )
     : 0;
+const activeAssignments = assignmentList.filter((a) => {
+  const notManuallyClosed = a?.isActive !== false;
+  const notOverdue = !a?.dueDate || new Date(a.dueDate) >= now;
 
-const activeAssignments = assignmentList.filter((a) => a?.isActive !== false).length;
-
-const now = new Date();
+  return notManuallyClosed && notOverdue;
+}).length;
 const upcomingExams = examList.filter((e) => {
   if (e?.status) return e.status === "Upcoming"; // fallback if status ever exists
   return e?.startTime && new Date(e.startTime) > now;

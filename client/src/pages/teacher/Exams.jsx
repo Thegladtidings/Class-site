@@ -51,9 +51,8 @@ function parseBulkText(raw) {
 /* ── Format a datetime string without timezone shift ── */
 function formatLocalDatetime(isoString, opts) {
   if (!isoString) return "—";
-  // Strip the Z / offset so Date() treats it as local — avoids UTC conversion
-  const local = isoString.replace("Z", "").replace(/[+-]\d{2}:\d{2}$/, "");
-  return new Date(local).toLocaleString("en-US", opts);
+
+  return new Date(isoString).toLocaleString("en-US", opts);
 }
 
 /* ── Convert datetime-local value → ISO string for backend ── */
@@ -65,12 +64,16 @@ function localInputToISO(localStr) {
 /* ── Convert ISO string from backend → datetime-local input value ── */
 function isoToLocalInput(isoString) {
   if (!isoString) return "";
-  // Render the stored time as if it's local (strip offset)
-  const local = isoString.replace("Z", "").replace(/[+-]\d{2}:\d{2}$/, "");
-  // datetime-local needs "YYYY-MM-DDTHH:MM"
-  return local.slice(0, 16);
-}
 
+  const date = new Date(isoString);
+
+  // Convert UTC date to local datetime-local format
+  const offset = date.getTimezoneOffset();
+
+  const localDate = new Date(date.getTime() - offset * 60000);
+
+  return localDate.toISOString().slice(0, 16);
+}
 /* ── Class Tab pill ── */
 function ClassTab({ label, count, active, onClick }) {
   return (

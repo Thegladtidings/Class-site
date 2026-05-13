@@ -36,37 +36,49 @@ const CARDS = [
   },
 ];
 
-export default function StatCards({ stats, loading }) {
+export default function StatCards({ stats = {}, loading }) {
   return (
     <div className={styles.grid}>
-      {CARDS.map((card, i) => (
-        <div
-          key={card.key}
-          className={styles.card}
-          style={{ animationDelay: `${i * 80}ms` }}
-        >
-          <div className={styles.iconWrap} style={{ background: card.bg }}>
-            <span className={styles.icon}>{card.icon}</span>
-          </div>
-          <div className={styles.content}>
-            <p className={styles.label}>{card.label}</p>
-            {loading ? (
-              <div className={styles.skeleton} />
-            ) : (
-              <p className={styles.value} style={{ color: card.color }}>
-                {card.isPercent
-                  ? `${stats[card.key]}%`
-                  : stats[card.key]}
-              </p>
-            )}
-            <p className={styles.suffix}>{card.suffix}</p>
-          </div>
+      {CARDS.map((card, i) => {
+        const rawValue = stats?.[card.key];
+
+        // safe fallback
+        const value =
+          typeof rawValue === "number" || typeof rawValue === "string"
+            ? rawValue
+            : 0;
+
+        return (
           <div
-            className={styles.accent}
-            style={{ background: card.color }}
-          />
-        </div>
-      ))}
+            key={card.key}
+            className={styles.card}
+            style={{ animationDelay: `${i * 80}ms` }}
+          >
+            <div className={styles.iconWrap} style={{ background: card.bg }}>
+              <span className={styles.icon}>{card.icon}</span>
+            </div>
+
+            <div className={styles.content}>
+              <p className={styles.label}>{card.label}</p>
+
+              {loading ? (
+                <div className={styles.skeleton} />
+              ) : (
+                <p className={styles.value} style={{ color: card.color }}>
+                  {card.isPercent ? `${value}%` : value}
+                </p>
+              )}
+
+              <p className={styles.suffix}>{card.suffix}</p>
+            </div>
+
+            <div
+              className={styles.accent}
+              style={{ background: card.color }}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }

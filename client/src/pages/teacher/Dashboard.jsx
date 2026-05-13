@@ -100,12 +100,26 @@ function DashboardHome({ stats, loading, students, assignments, announcements, o
     .slice(0, 5);
 
   const recentActivity = [
-    ...assignments.map((a) => ({
-      icon: "📋",
-      text: `Assignment "${a.title}" is ${a.status?.toLowerCase()}`,
-      time: a.deadline,
-      type: "assignment",
-    })),
+    ...assignments.map((a) => {
+  const overdue =
+    a.isActive !== false &&
+    a.dueDate &&
+    new Date(a.dueDate) < new Date();
+
+  const status =
+    a.isActive === false
+      ? "closed"
+      : overdue
+      ? "overdue"
+      : "active";
+
+  return {
+    icon: "📋",
+    text: `Assignment "${a.title}" is ${status}`,
+    time: a.dueDate,
+    type: "assignment",
+  };
+}),
     ...announcements.map((n) => ({
       icon: "📢",
       text: n.title,

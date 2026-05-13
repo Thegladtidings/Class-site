@@ -20,8 +20,8 @@ const examSchema = new mongoose.Schema({
   questions:   [questionSchema],
   createdBy:   { type: Schema.Types.ObjectId, ref: "Teacher", required: true },
   isPublished: { type: Boolean, default: false },         // teacher publishes when ready
-  startTime:   { type: Date, default: null },             // optional scheduled start
-  endTime:     { type: Date, default: null },  
+  startTime:   { type: String, default: null },             // optional scheduled start
+  endTime:     { type: String, default: null },  
   questionsPerStudent: { type: Number, default: null },
            // optional deadline
 }, { timestamps: true });
