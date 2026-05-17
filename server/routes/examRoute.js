@@ -14,7 +14,6 @@ import {
   uploadQuestionImage,
   getStudentsByClass,
   resetStudentResult,
-  debugExamQuery,
   getUpcomingExams
 } from "../controllers/examController.js";
 // In your routes file
@@ -39,7 +38,6 @@ router.delete("/teacher/:examId/results/:studentId", protect, authorise("teacher
 // ── Student routes ──────────────────────────────────────────────────────────
 router.get("/my-upcoming",              protect, authorise("student"), getUpcomingExams);
 router.get("/",                         protect, authorise("student"), getAvailableExams);
-router.get("/my-debug",                       protect, authorise("student"), debugExamQuery); // same endpoint, but frontend can use to show "My Exams"
 router.get("/my-results",              protect, authorise("student"), getMyExamResults);
 router.get("/:examId/start",           protect, authorise("student"), startExam);
 router.post("/:examId/submit",         protect, authorise("student"), submitExam);

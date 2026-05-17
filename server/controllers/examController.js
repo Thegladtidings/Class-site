@@ -3,6 +3,7 @@ import ExamResult from "../models/examResult.js";
 import Student from "../models/student.js";
 import { v2 as cloudinary } from "cloudinary";
 import streamifier from "streamifier";
+import { v4 as uuidv4 } from "uuid"; // npm i uuid  (already a common dep — add if missing)
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
@@ -23,21 +24,30 @@ function shuffleArray(arr) {
  *     regardless of where the option ended up after shuffling
  */
 function buildPersonalizedQuestions(questions, count) {
-  const pool     = shuffleArray(questions);           // shuffle question order
+  const pool     = shuffleArray(questions);
   const selected = count ? pool.slice(0, count) : pool;
 
-  return selected.map((q) => {
-    const shuffledOptions = shuffleArray([...q.options]);
-    return {
-      _id:           q._id,          // keep original _id for result linking
-      question:      q.question,
-      options:       shuffledOptions,
-      correctAnswer: q.correctAnswer, // still the answer TEXT, now at a new index
-      mark:          q.mark ?? 1,
-      imageUrl:      q.imageUrl ?? null, // NEW
+  return selected.map((q) => ({
+    _id:           q._id,
+    question:      q.question,
+    options:       shuffleArray([...q.options]),
+    correctAnswer: q.correctAnswer, // answer TEXT — survives option shuffle
+    mark:          q.mark ?? 1,
+    imageUrl:      q.imageUrl ?? null,
+  }));
+}
 
-    };
-  });
+/**
+ * Strip correctAnswer before sending questions to the client.
+ * Never expose answers to the browser.
+ */
+function questionsForClient(personalizedQuestions) {
+  return personalizedQuestions.map(({ _id, question, options, imageUrl }) => ({
+    _id,
+    question,
+    options,
+    imageUrl,
+  }));
 }
 
 // ─── TEACHER: Create a CBT exam ───────────────────────────────────────────────
@@ -46,7 +56,7 @@ export const createExam = async (req, res) => {
     const {
       title, subject, className, term,
       durationMins, questions, startTime, endTime, allowedStudents,
-      questionsPerStudent,   // NEW — e.g. 40 (pick 40 from a larger pool)
+      questionsPerStudent,
     } = req.body;
 
     if (!questions || questions.length === 0)
@@ -112,6 +122,7 @@ export const getExamResults = async (req, res) => {
     res.status(500).json({ message: "Error fetching results", error: err.message });
   }
 };
+
 export const getStudentsByClass = async (req, res) => {
   try {
     const { className } = req.params;
@@ -128,7 +139,6 @@ export const resetStudentResult = async (req, res) => {
   try {
     const { examId, studentId } = req.params;
 
-    // Verify the exam belongs to this teacher
     const exam = await Exam.findOne({ _id: examId, createdBy: req.user.id });
     if (!exam) return res.status(404).json({ message: "Exam not found or not yours" });
 
@@ -168,14 +178,11 @@ export const deleteExam = async (req, res) => {
   }
 };
 
-// controllers/uploadController.js  (or add to your existing upload controller)
+// ─── UPLOAD: Question image ───────────────────────────────────────────────────
 export const uploadQuestionImage = async (req, res) => {
   try {
-    console.log("Received file for upload:", req.file?.originalname);
-    if (!req.file)
-      return res.status(400).json({ message: "No file provided" });
+    if (!req.file) return res.status(400).json({ message: "No file provided" });
 
-    // Stream the buffer straight to Cloudinary — no disk write needed
     const streamUpload = () =>
       new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
@@ -201,17 +208,10 @@ export const getAvailableExams = async (req, res) => {
     const now = new Date();
 
     const exams = await Exam.find({
-      className: student.className,
+      className:   student.className,
       isPublished: true,
-
-      // ✅ Cause 3 fix — allow exams with no startTime set
-      $or: [
-        { startTime: null },
-        { startTime: { $lte: now } }
-      ],
-
+      $or: [{ startTime: null }, { startTime: { $lte: now } }],
       $and: [
-        // ✅ Cause 2 fix — handle null, missing, empty string endTime
         {
           $or: [
             { endTime: { $exists: false } },
@@ -220,7 +220,6 @@ export const getAvailableExams = async (req, res) => {
             { endTime: { $gte: now } },
           ],
         },
-        // ✅ Cause 1 fix — handle missing allowedStudents field
         {
           $or: [
             { allowedStudents: { $exists: false } },
@@ -233,7 +232,6 @@ export const getAvailableExams = async (req, res) => {
       .select("title subject className durationMins totalMarks questionsPerStudent createdBy startTime endTime allowedStudents")
       .sort({ createdAt: -1 });
 
-    // Mark which exams the student has already taken
     const takenExamIds = (
       await ExamResult.find({ student: req.user.id }).select("exam")
     ).map((r) => String(r.exam));
@@ -249,9 +247,64 @@ export const getAvailableExams = async (req, res) => {
   }
 };
 
+// ─── STUDENT: Verify an in-progress session ───────────────────────────────────
+//
+// GET /api/exam/session/:sessionToken
+//
+// Called by the frontend on page restore (refresh / app reopen on mobile)
+// BEFORE showing the exam screen, to confirm the session still exists on the
+// server. Returns 200 if valid, 404 if gone.
+//
+// Why this matters on mobile:
+//   iOS Safari kills the JS context when the user locks the screen or switches
+//   apps. On return, the page cold-boots and reads sessionToken from
+//   localStorage. Without this check, the student would be dropped into an exam
+//   whose startExam request may never have reached the server (slow 4G + kill).
+//
+export const verifySession = async (req, res) => {
+  try {
+    const result = await ExamResult.findOne({
+      sessionToken: req.params.sessionToken,
+      student:      req.user.id,
+      submitted:    false,               // only valid if not yet submitted
+    }).select("_id exam sessionToken startedAt");
+
+    if (!result)
+      return res.status(404).json({ message: "Session not found or already submitted" });
+
+    res.json({
+      valid:        true,
+      examResultId: result._id,
+      examId:       result.exam,
+      startedAt:    result.startedAt,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Error verifying session", error: err.message });
+  }
+};
+
 // ─── STUDENT: Start exam ──────────────────────────────────────────────────────
-// Each student gets a unique shuffled copy of the questions and options.
-// Their personalized snapshot is stored in ExamResult so grading is accurate.
+//
+// Changes from original:
+//
+// 1. IDEMPOTENT — if an in-progress ExamResult already exists for this student
+//    + exam, we return the SAME sessionToken instead of erroring or creating a
+//    duplicate. This makes double-taps and slow-network retries safe on mobile.
+//
+// 2. sessionToken — a UUID generated at session creation and stored on the
+//    ExamResult document. The frontend uses this as the single source of truth
+//    for session identity on submit, replacing the fragile examId+studentId
+//    lookup which couldn't distinguish between multiple attempts.
+//
+// 3. startedAt — stored on the document and returned to the client so the
+//    frontend can compute remaining time from the server-authoritative start
+//    time rather than trusting its own clock (fixes timer drift after mobile
+//    tab suspension).
+//
+// Required schema addition on ExamResult:
+//   sessionToken: { type: String, index: true }
+//   startedAt:    { type: Date }
+//
 export const startExam = async (req, res) => {
   try {
     const student = await Student.findById(req.user.id);
@@ -262,11 +315,12 @@ export const startExam = async (req, res) => {
       _id:         req.params.examId,
       className:   student.className,
       isPublished: true,
-      startTime:   { $lte: now },          // exam must have started
+      startTime:   { $lte: now },
       $or: [{ endTime: null }, { endTime: { $gte: now } }],
     });
 
     if (!exam) return res.status(404).json({ message: "Exam not available" });
+
     if (
       exam.allowedStudents.length > 0 &&
       !exam.allowedStudents.map(String).includes(String(student._id))
@@ -274,59 +328,87 @@ export const startExam = async (req, res) => {
       return res.status(403).json({ message: "You are not authorised to take this exam." });
     }
 
-    // If student already started (but not submitted), return their saved snapshot
+    // ── Check for an existing in-progress result ───────────────────────────
     const existingResult = await ExamResult.findOne({
       exam:    exam._id,
       student: req.user.id,
     });
 
     if (existingResult) {
+      // Already fully submitted — block retake
       if (existingResult.submitted)
         return res.status(400).json({ message: "You have already submitted this exam" });
 
-      // Return their in-progress snapshot — strip correctAnswer before sending
-      const questionsForClient = existingResult.personalizedQuestions.map(
-        ({ _id, question, options ,imageUrl}) => ({ _id, question, options, imageUrl })
-      );
+      // ── IDEMPOTENT RESUME ──────────────────────────────────────────────
+      // In-progress session exists. Return the same sessionToken so the
+      // frontend can restore seamlessly without creating a duplicate session.
+      // This is the key fix for the mobile double-tap / slow-network race:
+      // even if startExam is called twice, the second call returns the first
+      // session's token rather than creating a conflicting record.
 
       return res.json({
         message:      "Resuming exam.",
+        sessionToken: existingResult.sessionToken, // same token as before
         examResultId: existingResult._id,
         durationMins: exam.durationMins,
         startedAt:    existingResult.startedAt,
         serverTime:   now,
-        questions:    questionsForClient,
+        exam: {
+          _id:                exam._id,
+          title:              exam.title,
+          subject:            exam.subject,
+          className:          exam.className,
+          durationMins:       exam.durationMins,
+          totalMarks:         exam.totalMarks,
+          questionsPerStudent: exam.questionsPerStudent,
+          startTime:          exam.startTime,
+          endTime:            exam.endTime,
+          questions:          questionsForClient(existingResult.personalizedQuestions),
+        },
       });
     }
 
-    // ── Build this student's unique personalized copy ──────────────────────
+    // ── Brand-new session ──────────────────────────────────────────────────
     const personalizedQuestions = buildPersonalizedQuestions(
       exam.questions,
-      exam.questionsPerStudent   // null = give all questions
+      exam.questionsPerStudent
     );
 
-    // Save an in-progress ExamResult that stores the snapshot for grading later
+    // Generate a unique opaque token for this session.
+    // The frontend stores this and sends it back on submit.
+    // The backend uses ONLY this token to find the record — no more
+    // exam+student compound lookup that can match multiple attempts.
+    const sessionToken = uuidv4();
+
     const result = await ExamResult.create({
-      exam:                   exam._id,
-      student:                req.user.id,
-      personalizedQuestions,  // stored with correctAnswers for server-side grading
-      answers:                [],
-      submitted:              false,
-      startedAt:              now,
+      exam:                  exam._id,
+      student:               req.user.id,
+      sessionToken,          // ← NEW: stored for submit + verify lookups
+      personalizedQuestions, // stored with correctAnswers for server-side grading
+      answers:               [],
+      submitted:             false,
+      startedAt:             now,  // ← server-authoritative start time
     });
-
-    // Strip correctAnswer before sending to client
-    const questionsForClient = personalizedQuestions.map(
-      ({ _id, question, options, imageUrl }) => ({ _id, question, options, imageUrl })
-    );
 
     res.status(201).json({
       message:      "Exam started. Timer begins now.",
+      sessionToken, // ← returned to frontend; saved to localStorage
       examResultId: result._id,
       durationMins: exam.durationMins,
       startedAt:    now,
       serverTime:   now,
-      questions:    questionsForClient,
+      exam: {
+        _id:                exam._id,
+        title:              exam.title,
+        subject:            exam.subject,
+        className:          exam.className,
+        durationMins:       exam.durationMins,
+        totalMarks:         exam.totalMarks,
+        questionsPerStudent: exam.questionsPerStudent,
+        startTime:          exam.startTime,
+        endTime:            exam.endTime,
+        questions:          questionsForClient(personalizedQuestions),
+      },
     });
   } catch (err) {
     res.status(500).json({ message: "Error starting exam", error: err.message });
@@ -334,31 +416,63 @@ export const startExam = async (req, res) => {
 };
 
 // ─── STUDENT: Submit exam answers ─────────────────────────────────────────────
-// answers: [{ questionId, selectedOption }]
-// Graded against the student's OWN personalizedQuestions snapshot,
-// so shuffled options never cause wrong grades.
+//
+// Changes from original:
+//
+// 1. PRIMARY LOOKUP is now by sessionToken — the opaque UUID stored in
+//    localStorage and sent in the request body. This is unambiguous: one token
+//    = one session. The old lookup (exam + student) could fail on mobile when:
+//      a) startExam created the record but the response never reached the client
+//      b) the client retried startExam and got a 400 "already submitted" error
+//         because it found the first record — leaving the student with no valid
+//         session to submit against.
+//
+// 2. FALLBACK LOOKUP by exam + student is kept for backwards compatibility
+//    during the rollout period (clients that don't have sessionToken yet).
+//    Remove the fallback once all active clients are on the new frontend.
+//
 export const submitExam = async (req, res) => {
   try {
-    const { answers, timeTakenMins, status } = req.body;
+    const { answers, timeTakenMins, status, sessionToken } = req.body;
 
-    const result = await ExamResult.findOne({
-      exam:    req.params.examId,
-      student: req.user.id,
-    });
+    // ── Primary: look up by sessionToken ──────────────────────────────────
+    // This is the reliable path. One token = one unambiguous session.
+    let result = sessionToken
+      ? await ExamResult.findOne({
+          sessionToken,
+          student:   req.user.id,  // ownership check — token alone isn't enough
+          submitted: false,
+        })
+      : null;
+
+    // ── Fallback: look up by exam + student (old clients) ─────────────────
+    // Remove this block once all clients send sessionToken.
+    if (!result) {
+      result = await ExamResult.findOne({
+        exam:      req.params.examId,
+        student:   req.user.id,
+        submitted: false,
+      });
+    }
 
     if (!result)
-      return res.status(404).json({ message: "Exam session not found. Did you start the exam?" });
+      return res.status(404).json({
+        message: "Exam session not found. Did you start the exam?",
+      });
+
+    // Double-submit guard (shouldn't reach here because submitted:false is in
+    // the query, but kept as a belt-and-suspenders check)
     if (result.submitted)
       return res.status(400).json({ message: "You have already submitted this exam" });
 
-    // Build a quick lookup: originalQuestionId → correctAnswer
-    // Uses the snapshot stored at start time — works even if teacher edits later
+    // ── Grade against the student's personalizedQuestions snapshot ─────────
+    // Uses the snapshot stored at start time — correct even if teacher edits
+    // the exam pool after some students have started.
     const correctAnswerMap = {};
     result.personalizedQuestions.forEach((q) => {
       correctAnswerMap[String(q._id)] = q.correctAnswer;
     });
 
-    // Grade
     let score = 0;
     const gradedAnswers = (answers || []).map((ans) => {
       const correctAnswer = correctAnswerMap[String(ans.questionId)];
@@ -390,6 +504,10 @@ export const submitExam = async (req, res) => {
       totalMarks,
       percentage,
       timeTakenMins,
+      result: {
+        answers:     gradedAnswers,
+        timeTakenMins,
+      },
     });
   } catch (err) {
     res.status(500).json({ message: "Error submitting exam", error: err.message });
@@ -407,6 +525,8 @@ export const getMyExamResults = async (req, res) => {
     res.status(500).json({ message: "Error fetching your results", error: err.message });
   }
 };
+
+// ─── STUDENT: Get upcoming exams ──────────────────────────────────────────────
 export const getUpcomingExams = async (req, res) => {
   try {
     const student = await Student.findById(req.user.id);
@@ -415,9 +535,9 @@ export const getUpcomingExams = async (req, res) => {
     const now = new Date();
 
     const exams = await Exam.find({
-      className: student.className,
+      className:   student.className,
       isPublished: true,
-      startTime: { $gt: now }, // not started yet
+      startTime:   { $gt: now },
       $and: [
         {
           $or: [
@@ -436,63 +556,11 @@ export const getUpcomingExams = async (req, res) => {
       ],
     })
       .select("title subject className durationMins questionsPerStudent startTime endTime allowedStudents")
-      .sort({ startTime: 1 }); // soonest first
+      .sort({ startTime: 1 });
 
     res.json({ exams });
   } catch (err) {
     res.status(500).json({ message: "Error fetching upcoming exams", error: err.message });
   }
 };
-// Temporary debug — remove after fixing
-export const debugExamQuery = async (req, res) => {
-  try {
-    const student = await Student.findById(req.user.id);
-    const now = new Date();
 
-    // Step 1: ignore ALL filters
-    const all = await Exam.find({ className: student.className });
-    
-    // Step 2: add isPublished
-    const published = await Exam.find({ className: student.className, isPublished: true });
-
-    // Step 3: add startTime
-    const started = await Exam.find({ className: student.className, isPublished: true, startTime: { $lte: now } });
-
-    // Step 4: add endTime
-    const notEnded = await Exam.find({
-      className: student.className, isPublished: true, startTime: { $lte: now },
-      $or: [{ endTime: null }, { endTime: { $gte: now } }]
-    });
-
-    // Step 5: check allowedStudents separately
-    const allowedCheck = await Exam.find({
-      className: student.className, isPublished: true,
-      $or: [
-        { allowedStudents: { $size: 0 } },
-        { allowedStudents: { $elemMatch: { $eq: student._id } } }
-      ]
-    });
-
-    res.json({
-      studentId: student._id,
-      className: student.className,
-      now,
-      counts: {
-        all: all.length,
-        published: published.length,
-        started: started.length,
-        notEnded: notEnded.length,
-        allowedCheck: allowedCheck.length,
-      },
-      // Show the raw exam data so you can see startTime, endTime, allowedStudents
-      allExams: all.map(e => ({
-        _id: e._id, title: e.title, isPublished: e.isPublished,
-        startTime: e.startTime, endTime: e.endTime,
-        allowedStudents: e.allowedStudents,
-        allowedStudentsLength: e.allowedStudents?.length
-      }))
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
