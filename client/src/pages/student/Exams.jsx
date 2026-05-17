@@ -17,7 +17,7 @@ import {
 const SESSION_KEY = "examSession_v1";
 
 function saveSession(data) {
-  try { localStorage.setItem(SESSION_KEY, JSON.stringify(data)); } catch {}
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify(data)); } catch { }
 }
 
 function loadSession() {
@@ -25,7 +25,7 @@ function loadSession() {
 }
 
 function clearSession() {
-  try { localStorage.removeItem(SESSION_KEY); } catch {}
+  try { localStorage.removeItem(SESSION_KEY); } catch { }
 }
 
 /* ════════════════════════════════════════════
@@ -59,8 +59,8 @@ function MissedQuestions({ answers, showAll, onToggleShowAll }) {
     );
   }
 
-  const missed  = answerList.filter((a) => !a.isCorrect);
-  const correct = answerList.filter((a) =>  a.isCorrect);
+  const missed = answerList.filter((a) => !a.isCorrect);
+  const correct = answerList.filter((a) => a.isCorrect);
   const displayList = showAll ? answerList : missed;
 
   return (
@@ -94,19 +94,19 @@ function MissedQuestions({ answers, showAll, onToggleShowAll }) {
       )}
 
       {displayList.map((ans, idx) => {
-        const isCorrect  = ans.isCorrect;
-        const skipped    = !ans.selectedOption;
+        const isCorrect = ans.isCorrect;
+        const skipped = !ans.selectedOption;
         const questionNum = answerList.findIndex((a) => a._id === ans._id) + 1;
         const cardBorder = isCorrect ? "#bbf7d0" : skipped ? "#e2e8f0" : "#fecaca";
-        const cardBg     = isCorrect ? "#f0fdf4"  : skipped ? "#f8fafc"  : "#fef2f2";
-        const badgeColor = isCorrect ? "#10b981"  : skipped ? "#94a3b8"  : "#ef4444";
-        const badgeBg    = isCorrect ? "#dcfce7"  : skipped ? "#f1f5f9"  : "#fee2e2";
+        const cardBg = isCorrect ? "#f0fdf4" : skipped ? "#f8fafc" : "#fef2f2";
+        const badgeColor = isCorrect ? "#10b981" : skipped ? "#94a3b8" : "#ef4444";
+        const badgeBg = isCorrect ? "#dcfce7" : skipped ? "#f1f5f9" : "#fee2e2";
         const badgeLabel = isCorrect ? "✔ Correct" : skipped ? "— Skipped" : "✘ Missed";
-        const optionBg     = isCorrect ? "#dcfce7" : "#fee2e2";
+        const optionBg = isCorrect ? "#dcfce7" : "#fee2e2";
         const optionBorder = isCorrect ? "#86efac" : "#fca5a5";
-        const optionColor  = isCorrect ? "#15803d" : "#b91c1c";
-        const iconBg       = isCorrect ? "#10b981" : "#ef4444";
-        const answerLabel  = isCorrect ? "Your answer (correct)" : "Your answer (wrong)";
+        const optionColor = isCorrect ? "#15803d" : "#b91c1c";
+        const iconBg = isCorrect ? "#10b981" : "#ef4444";
+        const answerLabel = isCorrect ? "Your answer (correct)" : "Your answer (wrong)";
 
         return (
           <div key={ans._id ?? idx} style={{
@@ -143,7 +143,7 @@ function MissedQuestions({ answers, showAll, onToggleShowAll }) {
    RESULT DETAIL
 ════════════════════════════════════════════ */
 function ResultDetail({ result, onBack }) {
-  const pct   = result.percentage ?? 0;
+  const pct = result.percentage ?? 0;
   const grade = gradeFromPct(pct);
   const [showAll, setShowAll] = useState(false);
 
@@ -175,8 +175,8 @@ function ResultDetail({ result, onBack }) {
             <p style={{ fontWeight: 800, fontSize: 15, color: "#0f172a", margin: "0 0 2px" }}>{result.exam?.title ?? "Exam"}</p>
             <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>
               {result.score ?? 0}/{result.totalMarks ?? "?"} marks · Grade {grade.label}
-              {result.timeTakenMins != null && ` · ${result.timeTakenMins} min`}
-            </p>
+{(result.timeTakenMins ?? result.result?.timeTakenMins) != null && 
+  ` · ${result.timeTakenMins ?? result.result?.timeTakenMins} min`}            </p>
           </div>
         </div>
         <MissedQuestions answers={result.answers} showAll={showAll} onToggleShowAll={() => setShowAll((v) => !v)} />
@@ -189,10 +189,10 @@ function ResultDetail({ result, onBack }) {
    SCORE SCREEN
 ════════════════════════════════════════════ */
 function ScoreScreen({ result, onBack }) {
-  const pct   = result.percentage ?? 0;
+  const pct = result.percentage ?? 0;
   const grade = gradeFromPct(pct);
   const [showReview, setReview] = useState(false);
-  const [showAll, setShowAll]   = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const answersArray = Array.isArray(result.result?.answers) ? result.result.answers : [];
 
   return (
@@ -220,13 +220,18 @@ function ScoreScreen({ result, onBack }) {
             {[
               { label: "Score", value: `${result.score ?? 0}/${result.totalMarks ?? "?"}`, color: grade.color },
               { label: "Grade", value: grade.label, color: grade.color },
-              { label: "Time",  value: result.result?.timeTakenMins != null ? `${result.result.timeTakenMins} min` : "—", color: "#64748b" },
-            ].map((s) => (
-              <div key={s.label} style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "14px 10px", textAlign: "center" }}>
-                <p style={{ fontSize: 20, fontWeight: 800, color: s.color, margin: "0 0 4px" }}>{s.value}</p>
-                <p style={{ fontSize: 11, color: "#94a3b8", margin: 0 }}>{s.label}</p>
-              </div>
-            ))}
+              {
+                label: "Time",
+                value: (result.timeTakenMins ?? result.result?.timeTakenMins) != null
+                  ? `${result.timeTakenMins ?? result.result?.timeTakenMins} min`
+                  : "—",
+                color: "#64748b"
+              },].map((s) => (
+                <div key={s.label} style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "14px 10px", textAlign: "center" }}>
+                  <p style={{ fontSize: 20, fontWeight: 800, color: s.color, margin: "0 0 4px" }}>{s.value}</p>
+                  <p style={{ fontSize: 11, color: "#94a3b8", margin: 0 }}>{s.label}</p>
+                </div>
+              ))}
           </div>
           {answersArray.length > 0 && (
             <button className={styles.primaryBtn} style={{ background: "#f1f5f9", color: "#475569" }} onClick={() => setReview((v) => !v)}>
@@ -286,9 +291,9 @@ function InstructionScreen({ exam, student, onBegin, onCancel }) {
             <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 20px" }}>{exam.subject} · {exam.className}</p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               {[
-                { label: "Duration",  value: `${exam.durationMins} mins` },
+                { label: "Duration", value: `${exam.durationMins} mins` },
                 { label: "Questions", value: totalQuestions },
-                { label: "Marks",     value: exam.totalMarks ?? totalQuestions },
+                { label: "Marks", value: exam.totalMarks ?? totalQuestions },
               ].map((s) => (
                 <div key={s.label} style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 12, padding: "10px 16px", textAlign: "center", minWidth: 80, flex: 1 }}>
                   <p style={{ fontSize: 18, fontWeight: 800, color: "#f8fafc", margin: "0 0 2px" }}>{s.value}</p>
@@ -370,55 +375,52 @@ function StudentAvatar({ student }) {
 function ExamScreen({ exam, onFinish, student }) {
   const questions = exam?.questions ?? [];
 
-  // ── Restore or initialise session ──────────────────────────
-  // examStartedAt is the real wall-clock time the student clicked
-  // "Begin Exam". We use it — not serverTime — to compute timeLeft
-  // so refreshes never reset or miscount the timer.
   const [answers, setAnswers] = useState(() => {
     const s = loadSession();
     return (s?.examId === exam?._id && s?.answers) ? s.answers : {};
   });
 
-  const [current, setCurrent]   = useState(() => {
+  const [current, setCurrent] = useState(() => {
     const s = loadSession();
     return (s?.examId === exam?._id && s?.current) ? s.current : 0;
   });
 
-  const examStartedAt = useRef(() => {
-    const s = loadSession();
-    // Use saved start time if same exam, otherwise now
-    if (s?.examId === exam?._id && s?.examStartedAt) return s.examStartedAt;
-    return Date.now();
-  })();
+  // ── FIX: store the number in the ref, access via .current everywhere ──
+  const examStartedAt = useRef(
+    (() => {
+      const s = loadSession();
+      if (s?.examId === exam?._id && s?.examStartedAt) return s.examStartedAt;
+      return Date.now();
+    })()
+  );
 
-  const totalMs   = (exam?.durationMins ?? 60) * 60 * 1000;
-  const elapsed   = Date.now() - examStartedAt;
-  const initSecs  = Math.max(Math.floor((totalMs - elapsed) / 1000), 0);
+  const totalMs = (exam?.durationMins ?? 60) * 60 * 1000;
+  // FIX: use examStartedAt.current not examStartedAt
+  const elapsed = Date.now() - examStartedAt.current;
+  const initSecs = Math.max(Math.floor((totalMs - elapsed) / 1000), 0);
 
   const [timeLeft, setTimeLeft] = useState(initSecs);
-  const [submitting, setSub]    = useState(false);
-  const [toast, setToast]       = useState(null);
-  const intervalRef             = useRef(null);
-  const submittingRef           = useRef(false);
+  const [submitting, setSub] = useState(false);
+  const [toast, setToast] = useState(null);
+  const intervalRef = useRef(null);
+  const submittingRef = useRef(false);
 
-  // ── Persist session on every answers/current change ────────
   useEffect(() => {
     if (!exam?._id) return;
     saveSession({
-      examId:        exam._id,
+      examId: exam._id,
       exam,
       answers,
       current,
-      examStartedAt, // wall-clock ms when student began
+      examStartedAt: examStartedAt.current, // FIX: save the number not the ref
     });
   }, [answers, current, exam]);
 
-  // ── Auto-submit if time already expired on mount ────────────
   useEffect(() => {
     if (initSecs <= 0) {
       handleSubmit(true);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSubmit = useCallback(async (auto = false) => {
@@ -429,10 +431,11 @@ function ExamScreen({ exam, onFinish, student }) {
     submittingRef.current = true;
     setSub(true);
 
-    const timeTakenMins = Math.round((Date.now() - examStartedAt) / 60000);
+    // FIX: use examStartedAt.current
+    const timeTakenMins = Math.round((Date.now() - examStartedAt.current) / 60000);
     const payload = {
       answers: questions.map((q) => ({
-        questionId:     q._id,
+        questionId: q._id,
         selectedOption: answers[q._id] ?? "",
       })),
       timeTakenMins,
@@ -441,12 +444,13 @@ function ExamScreen({ exam, onFinish, student }) {
 
     try {
       const res = await submitExam(exam._id, payload);
-      clearSession(); // wipe persisted session after successful submit
+      clearSession();
       onFinish({
-        score:      res?.data?.score,
+        score: res?.data?.score,
         totalMarks: res?.data?.totalMarks,
         percentage: res?.data?.percentage,
-        result:     res?.data?.result,
+        result: res?.data?.result,
+          timeTakenMins: res?.data?.timeTakenMins ?? res?.data?.result?.timeTakenMins, // ADD THIS
         exam,
         answers,
       });
@@ -455,14 +459,14 @@ function ExamScreen({ exam, onFinish, student }) {
       submittingRef.current = false;
       setSub(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answers, exam, questions, onFinish]);
 
-  // ── Countdown — recalculates from wall clock every second ──
   useEffect(() => {
     intervalRef.current = setInterval(() => {
+      // FIX: use examStartedAt.current
       const remaining = Math.max(
-        Math.floor((totalMs - (Date.now() - examStartedAt)) / 1000),
+        Math.floor((totalMs - (Date.now() - examStartedAt.current)) / 1000),
         0
       );
       setTimeLeft(remaining);
@@ -472,8 +476,7 @@ function ExamScreen({ exam, onFinish, student }) {
       }
     }, 1000);
     return () => clearInterval(intervalRef.current);
-  // handleSubmit intentionally omitted
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!questions.length) {
@@ -491,7 +494,7 @@ function ExamScreen({ exam, onFinish, student }) {
     );
   }
 
-  const q    = questions[current];
+  const q = questions[current];
   const warn = timeLeft <= 300;
 
   return (
@@ -515,7 +518,6 @@ function ExamScreen({ exam, onFinish, student }) {
       </div>
 
       <div className={styles.examBody}>
-        {/* Progress dots */}
         <div className={styles.examProgress}>
           {questions.map((_, i) => (
             <button
@@ -548,7 +550,7 @@ function ExamScreen({ exam, onFinish, student }) {
 
           <div className={styles.optionsList}>
             {(q.options ?? []).map((opt, oi) => {
-              const letter   = ["A", "B", "C", "D"][oi] ?? String(oi + 1);
+              const letter = ["A", "B", "C", "D"][oi] ?? String(oi + 1);
               const selected = answers[q._id] === opt;
               return (
                 <button key={oi}
@@ -563,7 +565,6 @@ function ExamScreen({ exam, onFinish, student }) {
           </div>
         </div>
 
-        {/* Nav */}
         <div className={styles.examNav}>
           <button className={styles.actionBtn} disabled={current === 0} onClick={() => setCurrent((p) => p - 1)}>
             ← Previous
@@ -592,17 +593,17 @@ function ExamScreen({ exam, onFinish, student }) {
    MAIN — StudentExams
 ════════════════════════════════════════════ */
 export default function StudentExams() {
-  const [exams, setExams]         = useState([]);
+  const [exams, setExams] = useState([]);
   const [upcomingExams, setUpcomingExams] = useState([]);
-  const [results, setResults]     = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [tab, setTab]             = useState("available");
-  const [activeExam, setActive]   = useState(null);
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("available");
+  const [activeExam, setActive] = useState(null);
   const [instructionExam, setInstructionExam] = useState(null);
-  const [scoreData, setScore]     = useState(null);
+  const [scoreData, setScore] = useState(null);
   const [detailResult, setDetail] = useState(null);
-  const [starting, setStarting]   = useState(null);
-  const [toast, setToast]         = useState(null);
+  const [starting, setStarting] = useState(null);
+  const [toast, setToast] = useState(null);
 
   const student = (() => {
     try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
@@ -614,8 +615,8 @@ export default function StudentExams() {
   useEffect(() => {
     const session = loadSession();
     if (session?.examId && session?.exam && session?.examStartedAt) {
-      const totalMs   = (session.exam.durationMins ?? 60) * 60 * 1000;
-      const elapsed   = Date.now() - session.examStartedAt;
+      const totalMs = (session.exam.durationMins ?? 60) * 60 * 1000;
+      const elapsed = Date.now() - session.examStartedAt;
       const remaining = totalMs - elapsed;
 
       if (remaining > 0) {
@@ -625,13 +626,13 @@ export default function StudentExams() {
         // Time has expired — submit whatever was saved
         const payload = {
           answers: (session.exam.questions ?? []).map((q) => ({
-            questionId:     q._id,
+            questionId: q._id,
             selectedOption: session.answers?.[q._id] ?? "",
           })),
           timeTakenMins: Math.round(elapsed / 60000),
           status: "timed_out",
         };
-        submitExam(session.examId, payload).catch(() => {});
+        submitExam(session.examId, payload).catch(() => { });
         clearSession();
       }
     }
@@ -678,9 +679,9 @@ export default function StudentExams() {
     try {
       const res = await startExam(exam._id);
 
-      const serverExam  = res?.data?.exam ?? res?.data ?? {};
-      const questions   = serverExam.questions ?? res?.data?.questions ?? exam.questions ?? [];
-      const mergedExam  = { ...exam, ...serverExam, questions };
+      const serverExam = res?.data?.exam ?? res?.data ?? {};
+      const questions = serverExam.questions ?? res?.data?.questions ?? exam.questions ?? [];
+      const mergedExam = { ...exam, ...serverExam, questions };
 
       if (!mergedExam.questions.length) {
         setToast({ msg: "This exam has no questions yet. Please contact your teacher.", type: "error" });
@@ -690,10 +691,10 @@ export default function StudentExams() {
       // Save the session immediately so a refresh is safe from this point
       const startedAt = Date.now();
       saveSession({
-        examId:        mergedExam._id,
-        exam:          mergedExam,
-        answers:       {},
-        current:       0,
+        examId: mergedExam._id,
+        exam: mergedExam,
+        answers: {},
+        current: 0,
         examStartedAt: startedAt,
       });
 
@@ -707,7 +708,7 @@ export default function StudentExams() {
   function handleFinish(data) {
     setActive(null);
     setScore(data);
-    getMyExamResults().then((r) => setResults(r?.data?.results ?? [])).catch(() => {});
+    getMyExamResults().then((r) => setResults(r?.data?.results ?? [])).catch(() => { });
   }
 
   // ── Routing ──────────────────────────────────────────────────
@@ -732,7 +733,7 @@ export default function StudentExams() {
     );
   }
 
-  if (scoreData)    return <ScoreScreen result={scoreData} onBack={() => setScore(null)} />;
+  if (scoreData) return <ScoreScreen result={scoreData} onBack={() => setScore(null)} />;
   if (detailResult) return <ResultDetail result={detailResult} onBack={() => setDetail(null)} />;
 
   const takenIds = new Set(results.map((r) => String(r.exam?._id ?? r.exam)));
@@ -746,8 +747,8 @@ export default function StudentExams() {
 
   const STATUS = {
     upcoming: { label: "Upcoming", color: "#1a6ef5", bg: "#eff6ff" },
-    live:     { label: "Live Now", color: "#10b981", bg: "#f0fdf4" },
-    ended:    { label: "Ended",    color: "#6b7280", bg: "#f3f4f6" },
+    live: { label: "Live Now", color: "#10b981", bg: "#f0fdf4" },
+    ended: { label: "Ended", color: "#6b7280", bg: "#f3f4f6" },
   };
 
   return (
@@ -770,58 +771,58 @@ export default function StudentExams() {
           📊 My Results ({results.length})
         </button>
       </div>
-{/* Upcoming exams */}
-{upcomingExams.length > 0 && (
-  <div style={{ marginBottom: 24 }}>
-    <h3 style={{ fontSize: 14, fontWeight: 700, color: "#f59e0b", marginBottom: 12 }}>
-      🕐 Upcoming Exams
-    </h3>
-    {upcomingExams.map((exam) => (
-      <div key={exam._id} style={{
-        border: "1.5px solid #fde68a",
-        borderRadius: 12,
-        background: "#fffbeb",
-        padding: "14px 16px",
-        marginBottom: 10,
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 12,
-      }}>
-        <div>
-          <p style={{ fontWeight: 700, fontSize: 14, color: "#92400e", margin: "0 0 4px" }}>
-            {exam.title}
-          </p>
-          <p style={{ fontSize: 12, color: "#b45309", margin: 0 }}>
-            {exam.subject} · {exam.className}
-          </p>
-          <p style={{ fontSize: 12, color: "#b45309", margin: "4px 0 0" }}>
-            ⏰ Starts: {new Date(exam.startTime).toLocaleString("en-US", {
-              month: "short", day: "numeric",
-              hour: "2-digit", minute: "2-digit"
-            })}
-          </p>
-          <p style={{ fontSize: 12, color: "#b45309", margin: "4px 0 0" }}>
-            ⏰ Ends: {new Date(exam.endTime).toLocaleString("en-US", {
-              month: "short", day: "numeric",
-              hour: "2-digit", minute: "2-digit"
-            })}
-          </p>
+      {/* Upcoming exams */}
+      {upcomingExams.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: "#f59e0b", marginBottom: 12 }}>
+            🕐 Upcoming Exams
+          </h3>
+          {upcomingExams.map((exam) => (
+            <div key={exam._id} style={{
+              border: "1.5px solid #fde68a",
+              borderRadius: 12,
+              background: "#fffbeb",
+              padding: "14px 16px",
+              marginBottom: 10,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
+            }}>
+              <div>
+                <p style={{ fontWeight: 700, fontSize: 14, color: "#92400e", margin: "0 0 4px" }}>
+                  {exam.title}
+                </p>
+                <p style={{ fontSize: 12, color: "#b45309", margin: 0 }}>
+                  {exam.subject} · {exam.className}
+                </p>
+                <p style={{ fontSize: 12, color: "#b45309", margin: "4px 0 0" }}>
+                  ⏰ Starts: {new Date(exam.startTime).toLocaleString("en-US", {
+                    month: "short", day: "numeric",
+                    hour: "2-digit", minute: "2-digit"
+                  })}
+                </p>
+                <p style={{ fontSize: 12, color: "#b45309", margin: "4px 0 0" }}>
+                  ⏰ Ends: {new Date(exam.endTime).toLocaleString("en-US", {
+                    month: "short", day: "numeric",
+                    hour: "2-digit", minute: "2-digit"
+                  })}
+                </p>
+              </div>
+              <span style={{
+                fontSize: 11, fontWeight: 700,
+                padding: "4px 12px", borderRadius: 99,
+                background: "#fef3c7", color: "#d97706",
+                whiteSpace: "nowrap",
+              }}>
+                Not started yet
+              </span>
+            </div>
+          ))}
         </div>
-        <span style={{
-          fontSize: 11, fontWeight: 700,
-          padding: "4px 12px", borderRadius: 99,
-          background: "#fef3c7", color: "#d97706",
-          whiteSpace: "nowrap",
-        }}>
-          Not started yet
-        </span>
-      </div>
-    ))}
-  </div>
-)}
+      )}
 
-{/* Available exams — your existing section below */}
+      {/* Available exams — your existing section below */}
       {/* ── Available tab ── */}
       {tab === "available" && (
         loading ? (
@@ -835,9 +836,9 @@ export default function StudentExams() {
             )}
             {exams.map((ex) => {
               const timeStatus = examTimeStatus(ex);
-              const meta       = STATUS[timeStatus];
-              const taken      = takenIds.has(String(ex._id)) || ex.alreadyTaken;
-              const isLive     = timeStatus === "live";
+              const meta = STATUS[timeStatus];
+              const taken = takenIds.has(String(ex._id)) || ex.alreadyTaken;
+              const isLive = timeStatus === "live";
               const isStarting = starting === ex._id;
 
               return (
@@ -904,11 +905,11 @@ export default function StudentExams() {
               <div className={styles.emptyState}><span>📊</span><p>No exam results yet.</p></div>
             )}
             {results.map((r, i) => {
-              const pct         = r.percentage ?? 0;
-              const grade       = gradeFromPct(pct);
-              const answersArr  = Array.isArray(r.answers) ? r.answers : [];
+              const pct = r.percentage ?? 0;
+              const grade = gradeFromPct(pct);
+              const answersArr = Array.isArray(r.answers) ? r.answers : [];
               const missedCount = answersArr.filter((a) => !a.isCorrect).length;
-              const hasAnswers  = answersArr.length > 0;
+              const hasAnswers = answersArr.length > 0;
 
               return (
                 <div key={r._id ?? i} className={styles.itemCard} style={{ cursor: hasAnswers ? "pointer" : "default" }} onClick={() => hasAnswers && setDetail(r)}>
