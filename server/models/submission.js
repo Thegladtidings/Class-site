@@ -8,7 +8,7 @@ const submissionSchema = new mongoose.Schema({
   fileName:     { type: String },                       // original filename
   note:         { type: String },                       // optional text note from student
   submittedAt:  { type: Date, default: Date.now },
-  status:       { type: String, enum: ["submitted", "late", "missing"], default: "submitted" },
+  status:       { type: String, enum: ["submitted", "late", "missing", "graded"], default: "graded" },
   grade:        { type: Number, default: null },         // teacher can grade later
   teacherRemark:{ type: String, default: null },
 }, { timestamps: true });

@@ -15,6 +15,7 @@ const examSchema = new mongoose.Schema({
   subject:     { type: String, required: true },
   className:   { type: String, required: true },
   term:        { type: String },                         // e.g. "First Term"
+  allowedStudents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Student", default: [] }],
   durationMins:{ type: Number, required: true },         // exam timer in minutes
   totalMarks:  { type: Number },                         // auto-computed or set manually
   questions:   [questionSchema],

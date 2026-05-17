@@ -184,10 +184,10 @@ function FileUploadZone({ onUploaded, currentFile, onClear }) {
 function SubmissionsPanel({ assignment, onClose }) {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [gradeTarget, setGradeTarget] = useState(null); // null | submission object
+  const [gradeTarget, setGradeTarget] = useState(null);
   const [gradeForm, setGradeForm] = useState({ grade: "", teacherRemark: "" });
   const [grading, setGrading] = useState(false);
-  const [filter, setFilter] = useState("all"); // "all" | "pending" | "graded"
+  const [filter, setFilter] = useState("all");
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
@@ -195,35 +195,47 @@ function SubmissionsPanel({ assignment, onClose }) {
       try {
         const res = await getSubmissionsForAssignment(assignment._id);
         setSubmissions(res?.data?.submissions ?? []);
-      } catch { setToast({ msg: "Could not load submissions.", type: "error" }); }
-      finally { setLoading(false); }
+      } catch {
+        setToast({ msg: "Could not load submissions.", type: "error" });
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, [assignment._id]);
 
   async function handleGrade() {
-    if (!gradeForm.grade.trim()) { setToast({ msg: "Please enter a grade.", type: "error" }); return; }
+    if (!gradeForm.grade.trim()) {
+      setToast({ msg: "Please enter a grade.", type: "error" });
+      return;
+    }
     setGrading(true);
     try {
       const res = await gradeSubmission(gradeTarget._id, gradeForm);
       const updated = res?.data?.submission;
       setSubmissions((prev) =>
-        prev.map((s) => s._id === gradeTarget._id
-          ? {
-            ...s,
-            grade: updated?.grade ?? gradeForm.grade,
-            teacherRemark: updated?.teacherRemark ?? gradeForm.teacherRemark,
-            status: "graded",
-          }
-          : s
+        prev.map((s) =>
+          s._id === gradeTarget._id
+            ? {
+                ...s,
+                grade: updated?.grade ?? gradeForm.grade,
+                teacherRemark: updated?.teacherRemark ?? gradeForm.teacherRemark,
+                status: "graded",
+              }
+            : s
         )
       );
-      setToast({ msg: gradeTarget.status === "graded" ? "Grade updated!" : "Submission graded!", type: "success" });
+      setToast({
+        msg: gradeTarget.status === "graded" ? "Grade updated!" : "Submission graded!",
+        type: "success",
+      });
       setGradeTarget(null);
       setGradeForm({ grade: "", teacherRemark: "" });
     } catch (err) {
       setToast({ msg: err?.response?.data?.message || "Grading failed.", type: "error" });
-    } finally { setGrading(false); }
+    } finally {
+      setGrading(false);
+    }
   }
 
   function openGradeModal(s) {
@@ -240,14 +252,19 @@ function SubmissionsPanel({ assignment, onClose }) {
     return true;
   });
 
+  // ✅ Moved here — single source of truth, computed from gradeTarget
   const isEditing = gradeTarget?.status === "graded";
+
+  const TABS = [
+    { key: "all",     label: "All",     value: submissions.length, color: "#1a6ef5" },
+    { key: "graded",  label: "Graded",  value: gradedCount,        color: "#10b981" },
+    { key: "pending", label: "Pending", value: pendingCount,        color: "#f59e0b" },
+  ];
 
   return (
     <>
-      {/* ── Backdrop ── */}
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 300 }} />
 
-      {/* ── Drawer ── */}
       <div style={{
         position: "fixed", top: 0, right: 0,
         width: "min(540px, 100vw)", height: "100vh",
@@ -255,7 +272,6 @@ function SubmissionsPanel({ assignment, onClose }) {
         display: "flex", flexDirection: "column",
         boxShadow: "-4px 0 40px rgba(0,0,0,0.14)",
       }}>
-
         {/* Header */}
         <div style={{ padding: "20px 24px", borderBottom: "1.5px solid #e2e8f0", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div>
@@ -267,37 +283,44 @@ function SubmissionsPanel({ assignment, onClose }) {
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, color: "#94a3b8", cursor: "pointer", lineHeight: 1, flexShrink: 0, padding: "2px 6px" }}>✕</button>
         </div>
 
-        {/* Stats bar */}
+        {/* ✅ Fixed tab bar — borderBottom comes AFTER border shorthand */}
         {!loading && (
-          <div style={{ display: "flex", borderBottom: "1.5px solid #e2e8f0" }}>
-            {[
-              { key: "all", label: "All", value: submissions.length, color: "#1a6ef5" },
-              { key: "graded", label: "Graded", value: gradedCount, color: "#10b981" },
-              { key: "pending", label: "Pending", value: pendingCount, color: "#f59e0b" },
-            ].map((s, i, arr) => (
+          <div style={{ display: "flex", borderBottom: "1.5px solid #e2e8f0", flexShrink: 0 }}>
+            {TABS.map((tab, i) => (
               <button
-                key={s.key}
-                onClick={() => setFilter(s.key)}
+                key={tab.key}
+                onClick={() => setFilter(tab.key)}
                 style={{
-                  flex: 1, padding: "13px 0", textAlign: "center",
-                  borderRight: i < arr.length - 1 ? "1px solid #e2e8f0" : "none",
-                  border: "none",
-                  borderBottom: filter === s.key ? `2.5px solid ${s.color}` : "2.5px solid transparent",
-                  background: filter === s.key ? (
-                    s.key === "graded" ? "#f0fdf4" :
-                      s.key === "pending" ? "#fffbeb" : "#eff6ff"
-                  ) : "#fff",
-                  cursor: "pointer", transition: "all 0.15s",
+                  flex: 1,
+                  padding: "13px 0",
+                  textAlign: "center",
+                  background: filter === tab.key
+                    ? (tab.key === "graded" ? "#f0fdf4" : tab.key === "pending" ? "#fffbeb" : "#eff6ff")
+                    : "#fff",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                  // ✅ Set each border side individually — no shorthand that resets borderBottom
+                  borderTop: "none",
+                  borderLeft: "none",
+                  borderRight: i < TABS.length - 1 ? "1px solid #e2e8f0" : "none",
+                  borderBottom: filter === tab.key ? `2.5px solid ${tab.color}` : "2.5px solid transparent",
                 }}
               >
-                <p style={{ fontSize: 20, fontWeight: 800, color: s.color, margin: "0 0 2px" }}>{s.value}</p>
-                <p style={{ fontSize: 11, color: filter === s.key ? s.color : "#94a3b8", fontWeight: filter === s.key ? 700 : 400, margin: 0 }}>{s.label}</p>
+                <p style={{ fontSize: 20, fontWeight: 800, color: tab.color, margin: "0 0 2px" }}>{tab.value}</p>
+                <p style={{
+                  fontSize: 11,
+                  color: filter === tab.key ? tab.color : "#94a3b8",
+                  fontWeight: filter === tab.key ? 700 : 400,
+                  margin: 0,
+                }}>
+                  {tab.label}
+                </p>
               </button>
             ))}
           </div>
         )}
 
-        {/* List */}
+        {/* Submission list */}
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
           {loading ? (
             Array(3).fill(0).map((_, i) => (
@@ -309,9 +332,11 @@ function SubmissionsPanel({ assignment, onClose }) {
                 {filter === "graded" ? "🎓" : filter === "pending" ? "⏳" : "📭"}
               </p>
               <p style={{ fontSize: 14, margin: 0 }}>
-                {filter === "graded" ? "No graded submissions yet." :
-                  filter === "pending" ? "No pending submissions — all graded!" :
-                    "No submissions yet."}
+                {filter === "graded"
+                  ? "No graded submissions yet."
+                  : filter === "pending"
+                  ? "No pending submissions — all graded!"
+                  : "No submissions yet."}
               </p>
             </div>
           ) : (
@@ -322,12 +347,12 @@ function SubmissionsPanel({ assignment, onClose }) {
               return (
                 <div key={s._id} style={{
                   border: isGraded ? "1.5px solid #86efac" : "1.5px solid #e2e8f0",
-                  borderRadius: 12, overflow: "hidden",
+                  borderRadius: 12,
+                  // ✅ Remove overflow:hidden — it was clipping the grade button
                   background: isGraded ? "#fafffe" : "#fafbfc",
                   transition: "border-color 0.2s",
                 }}>
-
-                  {/* ── Card header: avatar + name + status badge ── */}
+                  {/* Card header */}
                   <div style={{ padding: "14px 16px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{
@@ -359,7 +384,7 @@ function SubmissionsPanel({ assignment, onClose }) {
                     </span>
                   </div>
 
-                  {/* ── Submission content ── */}
+                  {/* Submission content */}
                   <div style={{ padding: "10px 16px", margin: "10px 16px 0", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 12 }}>
                     {s.fileName ? (
                       <a href={s.fileUrl} target="_blank" rel="noreferrer"
@@ -369,9 +394,7 @@ function SubmissionsPanel({ assignment, onClose }) {
                     ) : (
                       <p style={{ color: "#94a3b8", fontStyle: "italic", margin: 0 }}>No file attached</p>
                     )}
-                    {s.note && (
-                      <p style={{ color: "#475569", margin: "6px 0 0" }}>💬 {s.note}</p>
-                    )}
+                    {s.note && <p style={{ color: "#475569", margin: "6px 0 0" }}>💬 {s.note}</p>}
                     <p style={{ color: "#94a3b8", margin: "6px 0 0" }}>
                       Submitted&nbsp;
                       {s.createdAt
@@ -380,7 +403,7 @@ function SubmissionsPanel({ assignment, onClose }) {
                     </p>
                   </div>
 
-                  {/* ── Graded result block — only shown when graded ── */}
+                  {/* Grade result block */}
                   {isGraded && (
                     <div style={{
                       margin: "10px 16px 0",
@@ -390,12 +413,8 @@ function SubmissionsPanel({ assignment, onClose }) {
                     }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                         <div>
-                          <p style={{ fontSize: 11, fontWeight: 700, color: "#15803d", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                            Grade Awarded
-                          </p>
-                          <p style={{ fontSize: 22, fontWeight: 800, color: "#15803d", margin: 0, lineHeight: 1 }}>
-                            {s.grade}
-                          </p>
+                          <p style={{ fontSize: 11, fontWeight: 700, color: "#15803d", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Grade Awarded</p>
+                          <p style={{ fontSize: 22, fontWeight: 800, color: "#15803d", margin: 0, lineHeight: 1 }}>{s.grade}</p>
                         </div>
                         {s.teacherRemark && (
                           <div style={{ flex: 1, marginLeft: 16, borderLeft: "2px solid #86efac", paddingLeft: 12 }}>
@@ -407,15 +426,17 @@ function SubmissionsPanel({ assignment, onClose }) {
                     </div>
                   )}
 
-                  {/* ── Action footer ── */}
+                  {/* ✅ Action footer — full width, not clipped */}
                   <div style={{
                     padding: "12px 16px",
-                    display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8,
-                    borderTop: isGraded ? "1px solid #bbf7d0" : "1px solid #f1f5f9",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    gap: 8,
                     marginTop: 10,
+                    borderTop: isGraded ? "1px solid #bbf7d0" : "1px solid #f1f5f9",
                   }}>
                     {isGraded ? (
-                      /* Already graded — show edit button clearly */
                       <button
                         onClick={() => openGradeModal(s)}
                         style={{
@@ -424,15 +445,12 @@ function SubmissionsPanel({ assignment, onClose }) {
                           border: "1.5px solid #86efac",
                           background: "#fff", color: "#15803d",
                           fontSize: 12, fontWeight: 700, cursor: "pointer",
-                          transition: "all 0.15s",
+                          whiteSpace: "nowrap", // ✅ prevent text wrap on small screens
                         }}
-                        onMouseOver={(e) => { e.currentTarget.style.background = "#f0fdf4"; }}
-                        onMouseOut={(e) => { e.currentTarget.style.background = "#fff"; }}
                       >
                         ✏️ Edit Grade
                       </button>
                     ) : (
-                      /* Not yet graded — prominent grade button */
                       <button
                         onClick={() => openGradeModal(s)}
                         style={{
@@ -440,10 +458,8 @@ function SubmissionsPanel({ assignment, onClose }) {
                           padding: "7px 18px", borderRadius: 8,
                           border: "none", background: "#1a6ef5", color: "#fff",
                           fontSize: 12, fontWeight: 700, cursor: "pointer",
-                          transition: "all 0.15s",
+                          whiteSpace: "nowrap", // ✅ prevent text wrap on small screens
                         }}
-                        onMouseOver={(e) => { e.currentTarget.style.background = "#1558c0"; }}
-                        onMouseOut={(e) => { e.currentTarget.style.background = "#1a6ef5"; }}
                       >
                         ✔ Grade Submission
                       </button>
@@ -456,7 +472,7 @@ function SubmissionsPanel({ assignment, onClose }) {
         </div>
       </div>
 
-      {/* ── Grade / Edit modal ── */}
+      {/* Grade modal */}
       {gradeTarget && (
         <Modal
           title={isEditing
@@ -482,8 +498,6 @@ function SubmissionsPanel({ assignment, onClose }) {
           }
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-            {/* Show current grade when editing */}
             {isEditing && (
               <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, padding: "10px 14px" }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: "#15803d", margin: "0 0 2px", textTransform: "uppercase" }}>Current Grade</p>
@@ -493,7 +507,6 @@ function SubmissionsPanel({ assignment, onClose }) {
                 )}
               </div>
             )}
-
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>
                 {isEditing ? "New Grade" : "Grade"}
@@ -506,7 +519,6 @@ function SubmissionsPanel({ assignment, onClose }) {
                 style={{ border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#0f172a", outline: "none", fontFamily: "inherit" }}
               />
             </div>
-
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>
                 Remark <span style={{ fontWeight: 400, color: "#94a3b8" }}>(optional)</span>

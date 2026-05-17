@@ -45,7 +45,7 @@ export const createExam = async (req, res) => {
   try {
     const {
       title, subject, className, term,
-      durationMins, questions, startTime, endTime,
+      durationMins, questions, startTime, endTime, allowedStudents,
       questionsPerStudent,   // NEW — e.g. 40 (pick 40 from a larger pool)
     } = req.body;
 
@@ -60,6 +60,7 @@ export const createExam = async (req, res) => {
     const exam = await Exam.create({
       title, subject, className, term, durationMins, questions,
       startTime, endTime,
+      allowedStudents: allowedStudents || [],
       questionsPerStudent: questionsPerStudent || null,
       createdBy: req.user.id,
       isPublished: false,
@@ -109,6 +110,34 @@ export const getExamResults = async (req, res) => {
     res.json({ exam, results });
   } catch (err) {
     res.status(500).json({ message: "Error fetching results", error: err.message });
+  }
+};
+export const getStudentsByClass = async (req, res) => {
+  try {
+    const { className } = req.params;
+    const students = await Student.find({ className })
+      .select("name studentId profileImage className")
+      .sort({ name: 1 });
+    res.json({ students });
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching students", error: err.message });
+  }
+};
+
+export const resetStudentResult = async (req, res) => {
+  try {
+    const { examId, studentId } = req.params;
+
+    // Verify the exam belongs to this teacher
+    const exam = await Exam.findOne({ _id: examId, createdBy: req.user.id });
+    if (!exam) return res.status(404).json({ message: "Exam not found or not yours" });
+
+    const deleted = await ExamResult.findOneAndDelete({ exam: examId, student: studentId });
+    if (!deleted) return res.status(404).json({ message: "No result found for this student" });
+
+    res.json({ message: "Result reset. Student can now retake the exam." });
+  } catch (err) {
+    res.status(500).json({ message: "Error resetting result", error: err.message });
   }
 };
 
@@ -170,12 +199,38 @@ export const getAvailableExams = async (req, res) => {
     if (!student) return res.status(404).json({ message: "Student not found" });
 
     const now = new Date();
+
     const exams = await Exam.find({
-      className:   student.className,
+      className: student.className,
       isPublished: true,
-      $or: [{ endTime: null }, { endTime: { $gte: now } }],
+
+      // ✅ Cause 3 fix — allow exams with no startTime set
+      $or: [
+        { startTime: null },
+        { startTime: { $lte: now } }
+      ],
+
+      $and: [
+        // ✅ Cause 2 fix — handle null, missing, empty string endTime
+        {
+          $or: [
+            { endTime: { $exists: false } },
+            { endTime: null },
+            { endTime: "" },
+            { endTime: { $gte: now } },
+          ],
+        },
+        // ✅ Cause 1 fix — handle missing allowedStudents field
+        {
+          $or: [
+            { allowedStudents: { $exists: false } },
+            { allowedStudents: { $size: 0 } },
+            { allowedStudents: { $elemMatch: { $eq: student._id } } },
+          ],
+        },
+      ],
     })
-      .select("title subject className durationMins totalMarks questionsPerStudent createdBy startTime endTime")
+      .select("title subject className durationMins totalMarks questionsPerStudent createdBy startTime endTime allowedStudents")
       .sort({ createdAt: -1 });
 
     // Mark which exams the student has already taken
@@ -212,6 +267,12 @@ export const startExam = async (req, res) => {
     });
 
     if (!exam) return res.status(404).json({ message: "Exam not available" });
+    if (
+      exam.allowedStudents.length > 0 &&
+      !exam.allowedStudents.map(String).includes(String(student._id))
+    ) {
+      return res.status(403).json({ message: "You are not authorised to take this exam." });
+    }
 
     // If student already started (but not submitted), return their saved snapshot
     const existingResult = await ExamResult.findOne({
@@ -344,5 +405,94 @@ export const getMyExamResults = async (req, res) => {
     res.json({ results });
   } catch (err) {
     res.status(500).json({ message: "Error fetching your results", error: err.message });
+  }
+};
+export const getUpcomingExams = async (req, res) => {
+  try {
+    const student = await Student.findById(req.user.id);
+    if (!student) return res.status(404).json({ message: "Student not found" });
+
+    const now = new Date();
+
+    const exams = await Exam.find({
+      className: student.className,
+      isPublished: true,
+      startTime: { $gt: now }, // not started yet
+      $and: [
+        {
+          $or: [
+            { endTime: { $exists: false } },
+            { endTime: null },
+            { endTime: { $gte: now } },
+          ],
+        },
+        {
+          $or: [
+            { allowedStudents: { $exists: false } },
+            { allowedStudents: { $size: 0 } },
+            { allowedStudents: { $elemMatch: { $eq: student._id } } },
+          ],
+        },
+      ],
+    })
+      .select("title subject className durationMins questionsPerStudent startTime endTime allowedStudents")
+      .sort({ startTime: 1 }); // soonest first
+
+    res.json({ exams });
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching upcoming exams", error: err.message });
+  }
+};
+// Temporary debug — remove after fixing
+export const debugExamQuery = async (req, res) => {
+  try {
+    const student = await Student.findById(req.user.id);
+    const now = new Date();
+
+    // Step 1: ignore ALL filters
+    const all = await Exam.find({ className: student.className });
+    
+    // Step 2: add isPublished
+    const published = await Exam.find({ className: student.className, isPublished: true });
+
+    // Step 3: add startTime
+    const started = await Exam.find({ className: student.className, isPublished: true, startTime: { $lte: now } });
+
+    // Step 4: add endTime
+    const notEnded = await Exam.find({
+      className: student.className, isPublished: true, startTime: { $lte: now },
+      $or: [{ endTime: null }, { endTime: { $gte: now } }]
+    });
+
+    // Step 5: check allowedStudents separately
+    const allowedCheck = await Exam.find({
+      className: student.className, isPublished: true,
+      $or: [
+        { allowedStudents: { $size: 0 } },
+        { allowedStudents: { $elemMatch: { $eq: student._id } } }
+      ]
+    });
+
+    res.json({
+      studentId: student._id,
+      className: student.className,
+      now,
+      counts: {
+        all: all.length,
+        published: published.length,
+        started: started.length,
+        notEnded: notEnded.length,
+        allowedCheck: allowedCheck.length,
+      },
+      // Show the raw exam data so you can see startTime, endTime, allowedStudents
+      allExams: all.map(e => ({
+        _id: e._id, title: e.title, isPublished: e.isPublished,
+        startTime: e.startTime, endTime: e.endTime,
+        allowedStudents: e.allowedStudents,
+        allowedStudentsLength: e.allowedStudents?.length
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };

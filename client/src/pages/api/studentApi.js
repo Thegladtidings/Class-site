@@ -14,12 +14,13 @@ export const getMySubmissions     = ()         => axiosInstance.get("/api/assign
 
 /* ─── Exams ─────────────────────────────────────── */
 export const getAvailableExams    = ()         => axiosInstance.get("/api/exams");
+export const getUpcomingExams      = ()         => axiosInstance.get("/api/exams/my-upcoming");
 export const startExam            = (id)       => axiosInstance.get(`/api/exams/${id}/start`);
 export const submitExam           = (id, data) => axiosInstance.post(`/api/exams/${id}/submit`, data);
 export const getMyExamResults     = ()         => axiosInstance.get("/api/exams/my-results");
 
 /* ─── Announcements ─────────────────────────────── */
-export const getAnnouncements     = ()         => axiosInstance.get("/api/announcements");
+export const getAnnouncements     = ()=> axiosInstance.get("/api/announcements");
 
 /* ─── Grades ───────────────────────────────────── */
 export const getMyGrades = () => axiosInstance.get("/api/grades/student/me");

@@ -79,15 +79,17 @@ export const gradeSubmission = async (req, res) => {
   try {
     const { submissionId } = req.params;
     const { grade, teacherRemark } = req.body;
-
+const parseGrade = Number(grade);
+    if (isNaN(parseGrade) || parseGrade < 0) {
+      return res.status(400).json({ message: "Grade must be a non-negative number" });
+    }
     const submission = await Submission.findById(submissionId).populate("assignment");
     if (!submission) return res.status(404).json({ message: "Submission not found" });
 
     if (String(submission.assignment.postedBy) !== String(req.user.id)) {
       return res.status(403).json({ message: "Not authorised to grade this submission" });
     }
-
-    submission.grade = grade;
+    submission.grade = parseGrade;
     submission.teacherRemark = teacherRemark;
     submission.status = "graded";
     await submission.save();
