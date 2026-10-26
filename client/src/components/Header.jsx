@@ -83,7 +83,7 @@ export default function Header({ profile, onMenuToggle, role }) {
           title="Logout"
         >
           <span>🚪</span>
-          <span>Logout</span>
+          <span>Logout User</span>
         </button>
       </div>
     </header>
