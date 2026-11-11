@@ -9,6 +9,7 @@ import AssignmentsSection       from "./Assignments.jsx";
 import ExamsSection             from "./Exams.jsx";
 import GradesSection            from "./Grades.jsx";
 import AnnouncementsSection     from "./Announcements.jsx";
+import ClassSchedule            from "../ClassSchedule.jsx";
 
 import { useTeacherData }       from "./Useteacherdata.js";
 import styles                   from "../../css/Teacherdashboard.module.css";
@@ -53,6 +54,9 @@ export default function TeacherDashboard() {
 
       case "announcements":
         return <AnnouncementsSection announcements={announcementList} loading={announcements.loading} />;
+
+      case "schedule":
+        return <ClassSchedule role="teacher" students={studentList} />;
 
       case "settings":
         return <SettingsPlaceholder />;

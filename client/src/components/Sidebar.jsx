@@ -5,6 +5,7 @@ import styles from "../css/Sidebar.module.css";
 const DEFAULT_NAV = [
   { key: "dashboard",     label: "Dashboard",     icon: "⊞" },
   { key: "students",      label: "Students",      icon: "👥" },
+  { key: "schedule",     label: "Class Schedule", icon: "◷" },
   { key: "assignments",   label: "Assignments",   icon: "📋" },
   { key: "exams",         label: "Exams",         icon: "📝" },
   { key: "grades",        label: "Grades",        icon: "📊" },

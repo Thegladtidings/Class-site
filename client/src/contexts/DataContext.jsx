@@ -5,6 +5,12 @@ export const DataContext = createContext();
 
 export const DataProvider = ({ children }) => {
   const dataCache = useRef({});
+  const initialized = useRef(false);
+
+  if (!initialized.current) {
+    mockData.initializeMockData();
+    initialized.current = true;
+  }
 
   // Grades
   const getGrades = useCallback((studentId) => {

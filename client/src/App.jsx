@@ -1,81 +1,92 @@
-import React, { useEffect } from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { DataProvider } from './contexts/DataContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { initializeMockData } from './utils/mockData';
 
-// Initialize mock data on app load
-initializeMockData();
+const DataProvider = lazy(() =>
+  import('./contexts/DataContext').then(({ DataProvider: Provider }) => ({ default: Provider }))
+);
+const LandingPage = lazy(() => import('./pages/LandingPage.jsx'));
+const LoginPage = lazy(() => import('./pages/LoginPage.jsx'));
+const StudentDashboard = lazy(() => import('./pages/student/Dashboard.jsx'));
+const StudentGrades = lazy(() => import('./pages/student/Grades.jsx'));
+const StudentAssignments = lazy(() => import('./pages/student/Assignments.jsx'));
+const StudentAnnouncements = lazy(() => import('./pages/student/Announcements.jsx'));
+const StudentProfile = lazy(() => import('./pages/student/Profile.jsx'));
+const StudentExams = lazy(() => import('./pages/student/Exams.jsx'));
+const TeacherDashboard = lazy(() => import('./pages/teacher/Dashboard.jsx'));
+const TeacherStudents = lazy(() => import('./pages/teacher/Students.jsx'));
+const TeacherGrades = lazy(() => import('./pages/teacher/Grades.jsx'));
+const TeacherAssignments = lazy(() => import('./pages/teacher/Assignments.jsx'));
+const TeacherAnnouncements = lazy(() => import('./pages/teacher/Announcements.jsx'));
+const TeacherExams = lazy(() => import('./pages/teacher/Exams.jsx'));
 
-// Pages
-import LoginPage from './pages/LoginPage';
-import StudentDashboard from './pages/student/Dashboard';
-import StudentGrades from './pages/student/Grades';
-import StudentAssignments from './pages/student/Assignments';
-import StudentAnnouncements from './pages/student/Announcements';
-import StudentProfile from './pages/student/Profile';
-import StudentExams from './pages/student/Exams';
-import TeacherDashboard from './pages/teacher/Dashboard';
-import TeacherStudents from './pages/teacher/Students';
-import TeacherGrades from './pages/teacher/Grades';
-import TeacherAssignments from './pages/teacher/Assignments';
-import TeacherAnnouncements from './pages/teacher/Announcements';
-import TeacherExams from './pages/teacher/Exams';
+function PortalRoute({ requiredRole, children }) {
+  return (
+    <ProtectedRoute requiredRole={requiredRole}>
+      <DataProvider>{children}</DataProvider>
+    </ProtectedRoute>
+  );
+}
 
 function App() {
   return (
     <BrowserRouter>
-        <DataProvider>
+      <Suspense fallback={
+        <div role="status" style={{ minHeight: "100vh", display: "grid", placeItems: "center", fontFamily: "sans-serif", color: "#147d6c" }}>
+          Loading ClassSite…
+        </div>
+      }>
           <Routes>
+            <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             
             {/* Student Routes */}
             <Route
               path="/student/dashboard"
               element={
-                <ProtectedRoute requiredRole="student">
+                <PortalRoute requiredRole="student">
                   <StudentDashboard />
-                </ProtectedRoute>
+                </PortalRoute>
               }
             />
             <Route
               path="/student/grades"
               element={
-                <ProtectedRoute requiredRole="student">
+                <PortalRoute requiredRole="student">
                   <StudentGrades />
-                </ProtectedRoute>
+                </PortalRoute>
               }
             />
             <Route
               path="/student/assignments"
               element={
-                <ProtectedRoute requiredRole="student">
+                <PortalRoute requiredRole="student">
                   <StudentAssignments />
-                </ProtectedRoute>
+                </PortalRoute>
               }
             />
             <Route
               path="/student/announcements"
               element={
-                <ProtectedRoute requiredRole="student">
+                <PortalRoute requiredRole="student">
                   <StudentAnnouncements />
-                </ProtectedRoute>
+                </PortalRoute>
               }
             />
             <Route
               path="/student/profile"
               element={
-                <ProtectedRoute requiredRole="student">
+                <PortalRoute requiredRole="student">
                   <StudentProfile />
-                </ProtectedRoute>
+                </PortalRoute>
               }
             />
             <Route
               path="/student/exams"
               element={
-                <ProtectedRoute requiredRole="student">
+                <PortalRoute requiredRole="student">
                   <StudentExams />
-                </ProtectedRoute>
+                </PortalRoute>
               }
             />
             
@@ -84,57 +95,55 @@ function App() {
             <Route
               path="/teacher/dashboard"
               element={
-                <ProtectedRoute requiredRole="teacher">
+                <PortalRoute requiredRole="teacher">
                   <TeacherDashboard />
-                </ProtectedRoute>
+                </PortalRoute>
               }
             />
             <Route
               path="/teacher/students"
               element={
-                <ProtectedRoute requiredRole="teacher">
+                <PortalRoute requiredRole="teacher">
                   <TeacherStudents />
-                </ProtectedRoute>
+                </PortalRoute>
               }
             />
             <Route
               path="/teacher/grades"
               element={
-                <ProtectedRoute requiredRole="teacher">
+                <PortalRoute requiredRole="teacher">
                   <TeacherGrades />
-                </ProtectedRoute>
+                </PortalRoute>
               }
             />
             <Route
               path="/teacher/assignments"
               element={
-                <ProtectedRoute requiredRole="teacher">
+                <PortalRoute requiredRole="teacher">
                   <TeacherAssignments />
-                </ProtectedRoute>
+                </PortalRoute>
               }
             />
             <Route
               path="/teacher/announcements"
               element={
-                <ProtectedRoute requiredRole="teacher">
+                <PortalRoute requiredRole="teacher">
                   <TeacherAnnouncements />
-                </ProtectedRoute>
+                </PortalRoute>
               }
             />
             <Route
               path="/teacher/exams"
               element={
-                <ProtectedRoute requiredRole="teacher">
+                <PortalRoute requiredRole="teacher">
                   <TeacherExams />
-                </ProtectedRoute>
+                </PortalRoute>
               }
             />
 
-            {/* Default redirect */}
-            <Route path="/" element={<Navigate to="/login"  />} />
-            <Route path="*" element={<Navigate to="/login"  />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-        </DataProvider>
+      </Suspense>
     </BrowserRouter>
   );
 }

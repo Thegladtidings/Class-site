@@ -8,6 +8,7 @@ import StudentAssignments         from "./Assignments.jsx";
 import StudentExams               from "./Exams.jsx";
 import StudentProfile             from "./Profile.jsx";
 import Grades from "./Grades.jsx";
+import ClassSchedule from "../ClassSchedule.jsx";
 import { useStudentData }         from "./UseStudentData.js";
 
 import styles from "../../css/Studentdashboard.module.css";
@@ -48,6 +49,7 @@ export default function StudentDashboard() {
     { id: "dashboard",     label: "Dashboard",     icon: "🏠" },
     { id: "exams",         label: "Exams",         icon: "📝" },
     { id: "assignments",   label: "Assignments",   icon: "📋" },
+    { id: "schedule",      label: "Class Schedule", icon: "◷" },
     { id: "grades",        label: "Grades",        icon: "📊" },
     { id: "announcements", label: "Announcements", icon: "📢" },
     { id: "profile",       label: "Profile",       icon: "👤" },
@@ -61,6 +63,8 @@ export default function StudentDashboard() {
         return <StudentAssignments />;
       case "grades":
         return <Grades />;
+      case "schedule":
+        return <ClassSchedule role="student" />;
       case "announcements":
         return <AnnouncementsSection announcements={announcementList} loading={isLoading} />;
       case "profile":
