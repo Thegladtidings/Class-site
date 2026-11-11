@@ -47,7 +47,11 @@ app.use('/api/class-sessions', classSessionRoutes);
 
 app.get('/', (req, res) => res.send('School API is running ✅'));
 
-app.listen(PORT, () => {
-  connectDB();
-  console.log(`Server is running on port ${PORT}`);
-});
+const startServer = async () => {
+  await connectDB();
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+};
+
+startServer();

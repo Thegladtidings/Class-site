@@ -5,7 +5,7 @@
  * Also hashes any existing plain-text passwords already in DB.
  *
  * Usage:
- *   node seedStudents.js
+ *   npm run seed
  * ─────────────────────────────────────────────────────────────
  */
 
@@ -24,7 +24,7 @@ const studentSchema = new mongoose.Schema({
   className:    { type: String, required: true },
   profileImage: { type: String, default: null },
   studentId:    { type: String, unique: true, sparse: true },
-  gender:       { type: String, enum: ['male', 'female'] },
+  gender:       { type: String, enum: ['Male', 'Female'] },
   isActive:     { type: Boolean, default: true },
 }, { timestamps: true });
 
@@ -39,7 +39,7 @@ const STUDENTS = [
     password:  'student123',
     className: 'JSS 2',
     studentId: 'JSS2-001',
-    gender:    'female',
+    gender:    'Female',
   },
   {
     name:      'Ibrahim',
@@ -47,7 +47,7 @@ const STUDENTS = [
     password:  'student123',
     className: 'JSS 2',
     studentId: 'JSS2-002',
-    gender:    'male',
+    gender:    'Male',
   },
   {
     name:      'Kamaldeen',
@@ -55,7 +55,7 @@ const STUDENTS = [
     password:  'student123',
     className: 'JSS 2',
     studentId: 'JSS2-003',
-    gender:    'male',
+    gender:    'Male',
   },
   {
     name:      'Hussein',
@@ -63,7 +63,7 @@ const STUDENTS = [
     password:  'student123',
     className: 'JSS 2',
     studentId: 'JSS2-004',
-    gender:    'male',
+    gender:    'Male',
   },
   {
     name:      'Hassan',
@@ -71,7 +71,7 @@ const STUDENTS = [
     password:  'student123',
     className: 'JSS 2',
     studentId: 'JSS2-005',
-    gender:    'male',
+    gender:    'Male',
   },
   {
     name:      'Sofiyah',
@@ -79,7 +79,7 @@ const STUDENTS = [
     password:  'student123',
     className: 'JSS 2',
     studentId: 'JSS2-006',
-    gender:    'female',
+    gender:    'Female',
   },
   {
     name:      'Haneefah',
@@ -87,7 +87,7 @@ const STUDENTS = [
     password:  'student123',
     className: 'JSS 2',
     studentId: 'JSS2-007',
-    gender:    'female',
+    gender:    'Female',
   },
   {
     name:      'Abubakr',
@@ -95,7 +95,7 @@ const STUDENTS = [
     password:  'student123',
     className: 'JSS 2',
     studentId: 'JSS2-008',
-    gender:    'male',
+    gender:    'Male',
   },
   {
     name:      "Na'eemah",
@@ -103,7 +103,7 @@ const STUDENTS = [
     password:  'student123',
     className: 'JSS 2',
     studentId: 'JSS2-009',
-    gender:    'female',
+    gender:    'Female',
   },
   {
     name:      'Augustine',
@@ -111,7 +111,7 @@ const STUDENTS = [
     password:  'student123',
     className: 'JSS 2',
     studentId: 'JSS2-010',
-    gender:    'male',
+    gender:    'Male',
   },
   {
     name:      'Royhan',
@@ -119,7 +119,7 @@ const STUDENTS = [
     password:  'student123',
     className: 'JSS 2',
     studentId: 'JSS2-011',
-    gender:    'male',
+    gender:    'Male',
   },
   {
     name:      'Furqan',
@@ -127,7 +127,7 @@ const STUDENTS = [
     password:  'student123',
     className: 'JSS 2',
     studentId: 'JSS2-012',
-    gender:    'male',
+    gender:    'Male',
   },
   {
     name:      'Abdulroheem',
@@ -135,7 +135,7 @@ const STUDENTS = [
     password:  'student123',
     className: 'JSS 2',
     studentId: 'JSS2-013',
-    gender:    'male',
+    gender:    'Male',
   },
 ];
 
@@ -145,7 +145,7 @@ const isAlreadyHashed = (password) =>
   password.startsWith('$2a$') || password.startsWith('$2b$');
 
 async function run() {
-  await mongoose.connect(process.env.MONGO_URI);
+  await mongoose.connect(process.env.MONGO_URI, { dbName: 'ClassDatabase' });
   console.log('✅ Connected to MongoDB\n');
 
   // ── 1. Hash + insert new sample students ─────────────────────
