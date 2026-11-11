@@ -5,6 +5,7 @@
 /* ── Shell ── */
 .shell {
   display: flex;
+  width: 100%;
   min-height: 100vh;
   background: #f8fafc;
   font-family: 'Sora', 'Inter', sans-serif;
@@ -15,6 +16,8 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  width: calc(100% - 240px);
+  margin-left: 240px;
 }
 
 .content {
@@ -25,6 +28,13 @@
 
 @media (max-width: 768px) {
   .content { padding: 16px; }
+}
+
+@media (max-width: 900px) {
+  .mainArea {
+    width: 100%;
+    margin-left: 0;
+  }
 }
 
 /* ── Page header ── */

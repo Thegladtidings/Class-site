@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate }         from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { Sidebar }              from "../../components/Sidebar.jsx";
 import Header                   from "../../components/Header.jsx";
@@ -10,18 +10,25 @@ import ExamsSection             from "./Exams.jsx";
 import GradesSection            from "./Grades.jsx";
 import AnnouncementsSection     from "./Announcements.jsx";
 import ClassSchedule            from "../ClassSchedule.jsx";
+import TeacherProfile           from "./Profile.jsx";
 
 import { useTeacherData }       from "./Useteacherdata.js";
 import styles                   from "../../css/Teacherdashboard.module.css";
 
-export default function TeacherDashboard() {
+export default function TeacherDashboard({ initialSection = "dashboard" }) {
   const navigate = useNavigate();
-  const [active, setActive]       = useState("dashboard");
+  const location = useLocation();
+  const [active, setActive]       = useState(initialSection);
   const [sidebarOpen, setSidebar] = useState(false);
+  const [profileOverride, setProfileOverride] = useState(null);
 
   useEffect(() => {
     if (!localStorage.getItem("token")) navigate("/login");
   }, [navigate]);
+
+  useEffect(() => {
+    setActive(initialSection);
+  }, [initialSection]);
 
   const {
     profile,
@@ -36,7 +43,17 @@ export default function TeacherDashboard() {
     gradeList,
     announcementList,
     stats,
+    errors,
+    refetchAll,
   } = useTeacherData();
+
+  const teacherProfile = profileOverride ?? profile.data?.teacher ?? profile.data ?? null;
+
+  function navigateToSection(section) {
+    setActive(section);
+    const destination = `/teacher/${section}`;
+    if (location.pathname !== destination) navigate(destination);
+  }
 
   function renderContent() {
     switch (active) {
@@ -57,19 +74,18 @@ export default function TeacherDashboard() {
 
       case "schedule":
         return <ClassSchedule role="teacher" students={studentList} />;
-
-      case "settings":
-        return <SettingsPlaceholder />;
+      case "profile":
+        return <TeacherProfile profile={teacherProfile} onUpdate={setProfileOverride} error={profile.error} />;
 
       default:
         return (
           <DashboardHome
             stats={stats}
-            loading={students.loading}
+            loading={students.loading || grades.loading}
             students={studentList}
             assignments={assignmentList}
             announcements={announcementList}
-            onNav={setActive}
+            onNav={navigateToSection}
           />
         );
     }
@@ -79,17 +95,25 @@ export default function TeacherDashboard() {
     <div className={styles.shell}>
       <Sidebar
         active={active}
-        onNav={setActive}
+        onNav={navigateToSection}
         open={sidebarOpen}
         onClose={() => setSidebar(false)}
         brandSub={"Teacher Portal"}
       />
       <div className={styles.mainArea}>
         <Header
-          profile={profile.data}
+          profile={teacherProfile}
+          role="teacher"
           onMenuToggle={() => setSidebar((v) => !v)}
+          onProfileClick={() => navigateToSection("profile")}
         />
         <main className={styles.content}>
+          {errors.length > 0 && (
+            <div className={styles.dataAlert} role="alert">
+              <span>Some portal data could not be loaded.</span>
+              <button type="button" onClick={refetchAll}>Try again</button>
+            </div>
+          )}
           {renderContent()}
         </main>
       </div>
@@ -99,7 +123,8 @@ export default function TeacherDashboard() {
 
 /* ── Dashboard Home ── */
 function DashboardHome({ stats, loading, students, assignments, announcements, onNav }) {
-  const topStudents = [...students]
+  const topStudents = students
+    .filter((student) => student.average != null)
     .sort((a, b) => b.average - a.average)
     .slice(0, 5);
 
@@ -149,8 +174,10 @@ function DashboardHome({ stats, loading, students, assignments, announcements, o
           </div>
           {loading ? (
             <div className={styles.skeletonBlock} />
-          ) : topStudents.length === 0 ? (
+          ) : students.length === 0 ? (
             <p style={{ color: "#94a3b8", padding: "16px 0" }}>No student data yet.</p>
+          ) : topStudents.length === 0 ? (
+            <p style={{ color: "#94a3b8", padding: "16px 0" }}>No grades recorded yet.</p>
           ) : (
             <div className={styles.topList}>
               {topStudents.map((s, i) => (
@@ -159,7 +186,7 @@ function DashboardHome({ stats, loading, students, assignments, announcements, o
                   <div className={styles.topAvatar}>{s.name?.[0]}</div>
                   <div className={styles.topInfo}>
                     <p className={styles.topName}>{s.name}</p>
-                    <p className={styles.topClass}>{s.class}</p>
+                    <p className={styles.topClass}>{s.className}</p>
                   </div>
                   <div
                     className={styles.topScore}
@@ -238,9 +265,11 @@ function DashboardHome({ stats, loading, students, assignments, announcements, o
             <div className={styles.skeletonBlock} />
           ) : students.length === 0 ? (
             <p style={{ color: "#94a3b8", padding: "16px 0" }}>No student data yet.</p>
+          ) : students.every((student) => student.average == null) ? (
+            <p style={{ color: "#94a3b8", padding: "16px 0" }}>No grades recorded yet.</p>
           ) : (
             <div className={styles.perfList}>
-              {students.map((s) => (
+              {students.filter((student) => student.average != null).map((s) => (
                 <div key={s._id} className={styles.perfRow}>
                   <span className={styles.perfName}>{s.name}</span>
                   <div className={styles.perfBar}>
@@ -274,19 +303,6 @@ function DashboardHome({ stats, loading, students, assignments, announcements, o
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-/* ── Settings placeholder ── */
-function SettingsPlaceholder() {
-  return (
-    <div style={{ textAlign: "center", padding: "80px 24px", color: "#94a3b8" }}>
-      <div style={{ fontSize: 48, marginBottom: 16 }}>⚙️</div>
-      <h2 style={{ fontFamily: "'Sora', sans-serif", color: "#334155", marginBottom: 8 }}>
-        Settings
-      </h2>
-      <p>Account and system settings will appear here.</p>
     </div>
   );
 }

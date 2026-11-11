@@ -10,7 +10,6 @@ const DEFAULT_NAV = [
   { key: "exams",         label: "Exams",         icon: "📝" },
   { key: "grades",        label: "Grades",        icon: "📊" },
   { key: "announcements", label: "Announcements", icon: "📢" },
-  { key: "settings",      label: "Settings",      icon: "⚙"  },
   { key: "profile",       label: "Profile",       icon: "👤" },
 ];
 
@@ -38,6 +37,7 @@ export const Sidebar = ({
   function handleLogout() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("role");
     navigate("/login");
   }
 
@@ -80,6 +80,7 @@ export const Sidebar = ({
             <button
               key={item.key}
               className={`${styles.navItem} ${active === item.key ? styles.navActive : ""}`}
+              aria-current={active === item.key ? "page" : undefined}
               onClick={() => {
                 onNav(item.key);
                 safeClose();   // close drawer on mobile after navigation

@@ -44,18 +44,39 @@ export function useTeacherData() {
   const announcements = useFetch(getAnnouncements);
   
   // Normalize each list — handle whatever key the API wraps data in
-  const studentList       = Array.isArray(students.data?.students)      ? students.data.students           : Array.isArray(students.data)      ? students.data      : [];
+  const rawStudentList    = Array.isArray(students.data?.students)      ? students.data.students           : Array.isArray(students.data)      ? students.data      : [];
   const assignmentList    = Array.isArray(assignments.data?.assignments) ? assignments.data.assignments     : Array.isArray(assignments.data)   ? assignments.data   : [];
   const examList          = Array.isArray(exams.data?.exams)            ? exams.data.exams                 : Array.isArray(exams.data)         ? exams.data         : [];
   const gradeList         = Array.isArray(grades.data?.grades)          ? grades.data.grades               : Array.isArray(grades.data)        ? grades.data        : [];
   const announcementList  = Array.isArray(announcements.data?.announcements) ? announcements.data.announcements : Array.isArray(announcements.data) ? announcements.data : [];
+  const gradeTotals = new Map();
+  for (const grade of gradeList) {
+    const studentId = grade.student?._id;
+    const totalScore = Number(grade.totalScore);
+    if (!studentId || !Number.isFinite(totalScore) || totalScore <= 0) continue;
+
+    const current = gradeTotals.get(studentId) ?? { score: 0, total: 0 };
+    gradeTotals.set(studentId, {
+      score: current.score + Number(grade.score || 0),
+      total: current.total + totalScore,
+    });
+  }
+  const studentList = rawStudentList.map((student) => {
+    const totals = gradeTotals.get(student._id);
+    return {
+      ...student,
+      average: totals ? Math.round((totals.score / totals.total) * 100) : null,
+    };
+  });
+  const resources = [profile, students, assignments, exams, grades, announcements];
+  const errors = resources.filter((resource) => resource.error);
+  const refetchAll = () => Promise.all(resources.map((resource) => resource.refetch()));
 
   const now = new Date();
   // Stats
-  const classAverage = studentList.length
-  ? Math.round(
-    studentList.reduce((sum, s) => sum + (s.average || 0), 0) / studentList.length
-      )
+  const gradedStudents = studentList.filter((student) => student.average != null);
+  const classAverage = gradedStudents.length
+    ? Math.round(gradedStudents.reduce((sum, student) => sum + student.average, 0) / gradedStudents.length)
     : 0;
 const activeAssignments = assignmentList.filter((a) => {
   const notManuallyClosed = a?.isActive !== false;
@@ -81,6 +102,8 @@ const upcomingExams = examList.filter((e) => {
     examList,
     gradeList,
     announcementList,
+    errors,
+    refetchAll,
 
     stats: {
       totalStudents: studentList.length,

@@ -154,6 +154,14 @@ export function useStudentData() {
       grades.loading,
 
     hasError:
-      !!(profile.error || assignments.error || exams.error || results.error),
+      !!(
+        profile.error ||
+        assignments.error ||
+        submissions.error ||
+        exams.error ||
+        results.error ||
+        announcements.error ||
+        grades.error
+      ),
   };
 }

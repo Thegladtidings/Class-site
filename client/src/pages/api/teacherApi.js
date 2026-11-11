@@ -1,16 +1,17 @@
 import axiosInstance from "./Axiosinstance.js";
 
 export const getProfile = () => axiosInstance.get("/api/teachers/profile");
+export const updateProfile = (data) => axiosInstance.put("/api/teachers/profile-update", data);
 export const getStudents = () => axiosInstance.get("/api/students");
 export const getAssignments = () => axiosInstance.get("/api/assignments/my");
 export const getExams = () => axiosInstance.get("/api/exams/teacher/my");
-export const getGrades = () => axiosInstance.get("/api/teacher/grades");
+export const getGrades = () => axiosInstance.get("/api/grades/teacher");
 export const postAnnouncement = (data) => axiosInstance.post("/api/announcements", data);
 export const deleteAnnouncement = (id) => axiosInstance.delete(`/api/announcements/${id}`);
 export const getAnnouncements = () => axiosInstance.get("/api/announcements");
 export const createAssignment = (data) => axiosInstance.post("/api/assignments/", data);
-export const updateAssignment = (id, d) => axiosInstance.put(`/api/teacher/assignments/${id}`, d);
-export const deleteAssignment = (id) => axiosInstance.delete(`/api/teacher/assignments/${id}`);
+export const updateAssignment = (id, d) => axiosInstance.patch(`/api/assignments/${id}`, d);
+export const deleteAssignment = (id) => axiosInstance.delete(`/api/assignments/${id}`);
 export const createExam = (data) => axiosInstance.post("/api/exams/teacher", data);
 export const deleteExam = (id) => axiosInstance.delete(`/api/exams/teacher/${id}`);
 export const togglePublishExam = (id) => axiosInstance.patch(`/api/exams/teacher/${id}/publish`);

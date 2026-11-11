@@ -705,9 +705,16 @@ export default function ExamsSection({ loading: externalLoading, selectedClass }
 
   async function handleDelete(id) {
     if (!window.confirm("Delete this exam?")) return;
-    try { await deleteExam(id); } catch {}
-    setList((p) => p.filter((x) => x._id !== id));
-    setToast({ msg: "Exam deleted.", type: "info" });
+    try {
+      await deleteExam(id);
+      setList((p) => p.filter((x) => x._id !== id));
+      setToast({ msg: "Exam deleted.", type: "info" });
+    } catch (err) {
+      setToast({
+        msg: err.response?.data?.message || "Could not delete the exam.",
+        type: "error",
+      });
+    }
   }
 
   const now = new Date();

@@ -96,11 +96,9 @@ export default function AnnouncementsSection({ loading: externalLoading }) {
         studentPhoto: form.studentPhoto || undefined,
       };
 
-      const res     = await postAnnouncement(payload);
-      const created = res?.data?.announcement ?? {
-        _id: `n${Date.now()}`, ...payload,
-        createdAt: new Date().toISOString(),
-      };
+      const res = await postAnnouncement(payload);
+      const created = res?.data?.announcement;
+      if (!created) throw new Error("The server did not return the saved announcement.");
 
       setList((p) => [created, ...p]);
       setForm(EMPTY);
@@ -116,9 +114,16 @@ export default function AnnouncementsSection({ loading: externalLoading }) {
   /* ── Delete ── */
   async function handleDelete(id) {
     if (!window.confirm("Delete this announcement?")) return;
-    try { await deleteAnnouncement(id); } catch {}
-    setList((p) => p.filter((a) => a._id !== id));
-    setToast({ msg: "Announcement removed.", type: "info" });
+    try {
+      await deleteAnnouncement(id);
+      setList((p) => p.filter((a) => a._id !== id));
+      setToast({ msg: "Announcement removed.", type: "info" });
+    } catch (err) {
+      setToast({
+        msg: err.response?.data?.message || "Could not delete the announcement.",
+        type: "error",
+      });
+    }
   }
 
   const isBestStudent = form.type === "best_student";

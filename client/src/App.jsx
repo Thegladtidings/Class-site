@@ -8,23 +8,29 @@ const DataProvider = lazy(() =>
 const LandingPage = lazy(() => import('./pages/LandingPage.jsx'));
 const LoginPage = lazy(() => import('./pages/LoginPage.jsx'));
 const StudentDashboard = lazy(() => import('./pages/student/Dashboard.jsx'));
-const StudentGrades = lazy(() => import('./pages/student/Grades.jsx'));
-const StudentAssignments = lazy(() => import('./pages/student/Assignments.jsx'));
-const StudentAnnouncements = lazy(() => import('./pages/student/Announcements.jsx'));
-const StudentProfile = lazy(() => import('./pages/student/Profile.jsx'));
-const StudentExams = lazy(() => import('./pages/student/Exams.jsx'));
 const TeacherDashboard = lazy(() => import('./pages/teacher/Dashboard.jsx'));
-const TeacherStudents = lazy(() => import('./pages/teacher/Students.jsx'));
-const TeacherGrades = lazy(() => import('./pages/teacher/Grades.jsx'));
-const TeacherAssignments = lazy(() => import('./pages/teacher/Assignments.jsx'));
-const TeacherAnnouncements = lazy(() => import('./pages/teacher/Announcements.jsx'));
-const TeacherExams = lazy(() => import('./pages/teacher/Exams.jsx'));
 
 function PortalRoute({ requiredRole, children }) {
   return (
     <ProtectedRoute requiredRole={requiredRole}>
       <DataProvider>{children}</DataProvider>
     </ProtectedRoute>
+  );
+}
+
+function StudentPortal({ section }) {
+  return (
+    <PortalRoute requiredRole="student">
+      <StudentDashboard initialSection={section} />
+    </PortalRoute>
+  );
+}
+
+function TeacherPortal({ section }) {
+  return (
+    <PortalRoute requiredRole="teacher">
+      <TeacherDashboard initialSection={section} />
+    </PortalRoute>
   );
 }
 
@@ -36,113 +42,30 @@ function App() {
           Loading ClassSite…
         </div>
       }>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            
-            {/* Student Routes */}
-            <Route
-              path="/student/dashboard"
-              element={
-                <PortalRoute requiredRole="student">
-                  <StudentDashboard />
-                </PortalRoute>
-              }
-            />
-            <Route
-              path="/student/grades"
-              element={
-                <PortalRoute requiredRole="student">
-                  <StudentGrades />
-                </PortalRoute>
-              }
-            />
-            <Route
-              path="/student/assignments"
-              element={
-                <PortalRoute requiredRole="student">
-                  <StudentAssignments />
-                </PortalRoute>
-              }
-            />
-            <Route
-              path="/student/announcements"
-              element={
-                <PortalRoute requiredRole="student">
-                  <StudentAnnouncements />
-                </PortalRoute>
-              }
-            />
-            <Route
-              path="/student/profile"
-              element={
-                <PortalRoute requiredRole="student">
-                  <StudentProfile />
-                </PortalRoute>
-              }
-            />
-            <Route
-              path="/student/exams"
-              element={
-                <PortalRoute requiredRole="student">
-                  <StudentExams />
-                </PortalRoute>
-              }
-            />
-            
-            
-            {/* Teacher Routes */}
-            <Route
-              path="/teacher/dashboard"
-              element={
-                <PortalRoute requiredRole="teacher">
-                  <TeacherDashboard />
-                </PortalRoute>
-              }
-            />
-            <Route
-              path="/teacher/students"
-              element={
-                <PortalRoute requiredRole="teacher">
-                  <TeacherStudents />
-                </PortalRoute>
-              }
-            />
-            <Route
-              path="/teacher/grades"
-              element={
-                <PortalRoute requiredRole="teacher">
-                  <TeacherGrades />
-                </PortalRoute>
-              }
-            />
-            <Route
-              path="/teacher/assignments"
-              element={
-                <PortalRoute requiredRole="teacher">
-                  <TeacherAssignments />
-                </PortalRoute>
-              }
-            />
-            <Route
-              path="/teacher/announcements"
-              element={
-                <PortalRoute requiredRole="teacher">
-                  <TeacherAnnouncements />
-                </PortalRoute>
-              }
-            />
-            <Route
-              path="/teacher/exams"
-              element={
-                <PortalRoute requiredRole="teacher">
-                  <TeacherExams />
-                </PortalRoute>
-              }
-            />
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Route path="/student/dashboard" element={<StudentPortal section="dashboard" />} />
+          <Route path="/student/assignments" element={<StudentPortal section="assignments" />} />
+          <Route path="/student/exams" element={<StudentPortal section="exams" />} />
+          <Route path="/student/grades" element={<StudentPortal section="grades" />} />
+          <Route path="/student/announcements" element={<StudentPortal section="announcements" />} />
+          <Route path="/student/schedule" element={<StudentPortal section="schedule" />} />
+          <Route path="/student/profile" element={<StudentPortal section="profile" />} />
+
+          <Route path="/teacher/dashboard" element={<TeacherPortal section="dashboard" />} />
+          <Route path="/teacher/students" element={<TeacherPortal section="students" />} />
+          <Route path="/teacher/assignments" element={<TeacherPortal section="assignments" />} />
+          <Route path="/teacher/exams" element={<TeacherPortal section="exams" />} />
+          <Route path="/teacher/grades" element={<TeacherPortal section="grades" />} />
+          <Route path="/teacher/announcements" element={<TeacherPortal section="announcements" />} />
+          <Route path="/teacher/schedule" element={<TeacherPortal section="schedule" />} />
+          <Route path="/teacher/profile" element={<TeacherPortal section="profile" />} />
+          <Route path="/teacher/settings" element={<Navigate to="/teacher/profile" replace />} />
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </Suspense>
     </BrowserRouter>
   );

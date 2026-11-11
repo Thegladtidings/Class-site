@@ -1,6 +1,7 @@
 /* ── App shell layout ── */
 .shell {
   display: flex;
+  width: 100%;
   min-height: 100vh;
   background: #f0f4f9;
 }
@@ -21,6 +22,31 @@
   width: 100%;
   box-sizing: border-box;
   animation: fadeUp 0.4s ease both;
+}
+
+.dataAlert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding: 12px 16px;
+  border: 1px solid #f0d7a3;
+  border-radius: 12px;
+  background: #fffaf0;
+  color: #765d25;
+  font-size: 13px;
+}
+
+.dataAlert button {
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border: 1px solid #e8c984;
+  border-radius: 8px;
+  background: #fff;
+  color: #765d25;
+  font-size: 12px;
+  font-weight: 650;
 }
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(14px); }
@@ -143,7 +169,10 @@
 
 /* ── Responsive ── */
 @media (max-width: 900px) {
-  .mainArea { margin-left: 0; }
+  .mainArea {
+    width: 100%;
+    margin-left: 0;
+  }
   .content  { padding: 20px 16px; }
   .dashGrid { grid-template-columns: 1fr; }
 }

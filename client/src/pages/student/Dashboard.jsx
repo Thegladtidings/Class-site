@@ -1,5 +1,5 @@
 import { useState, useEffect }    from "react";
-import { useNavigate }            from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { Sidebar }                from "../../components/Sidebar.jsx";
 import Header                     from "../../components/Header.jsx";
@@ -7,6 +7,7 @@ import Toast                      from "../../components/Toast.jsx";
 import StudentAssignments         from "./Assignments.jsx";
 import StudentExams               from "./Exams.jsx";
 import StudentProfile             from "./Profile.jsx";
+import StudentAnnouncements       from "./Announcements.jsx";
 import Grades from "./Grades.jsx";
 import ClassSchedule from "../ClassSchedule.jsx";
 import { useStudentData }         from "./UseStudentData.js";
@@ -16,11 +17,13 @@ import styles from "../../css/Studentdashboard.module.css";
 /* ══════════════════════════════════════════════
    STUDENT DASHBOARD SHELL
 ══════════════════════════════════════════════ */
-export default function StudentDashboard() {
+export default function StudentDashboard({ initialSection = "dashboard" }) {
   const navigate = useNavigate();
-  const [active, setActive]       = useState("dashboard");
+  const location = useLocation();
+  const [active, setActive]       = useState(initialSection);
   const [sidebarOpen, setSidebar] = useState(false);
   const [toast, setToast]         = useState(null);
+  const [profileOverride, setProfileOverride] = useState(null);
 
   const {
     profile,
@@ -29,6 +32,7 @@ export default function StudentDashboard() {
     examList,
     gradeList,
     announcementList,
+    announcements,
     submissionMap,
     stats,
     isLoading,
@@ -40,10 +44,20 @@ export default function StudentDashboard() {
   }, [navigate]);
 
   useEffect(() => {
+    setActive(initialSection);
+  }, [initialSection]);
+
+  useEffect(() => {
     if (hasError) setToast({ msg: "Some data could not be loaded.", type: "error" });
   }, [hasError]);
 
-  const profileData = profile.data?.student ?? profile.data ?? null;
+  const profileData = profileOverride ?? profile.data?.student ?? profile.data ?? null;
+
+  function navigateToSection(section) {
+    setActive(section);
+    const destination = `/student/${section}`;
+    if (location.pathname !== destination) navigate(destination);
+  }
 
   const NAV = [
     { id: "dashboard",     label: "Dashboard",     icon: "🏠" },
@@ -66,12 +80,19 @@ export default function StudentDashboard() {
       case "schedule":
         return <ClassSchedule role="student" />;
       case "announcements":
-        return <AnnouncementsSection announcements={announcementList} loading={isLoading} />;
+        return (
+          <StudentAnnouncements
+            announcements={announcementList}
+            loading={announcements.loading}
+            requestError={announcements.error}
+          />
+        );
       case "profile":
   return (
     <StudentProfile
       profile={profileData}
       onUpdate={(updated) => {
+        setProfileOverride(updated);
         setToast({ msg: "Profile updated successfully!", type: "success" });
       }}
     />
@@ -87,7 +108,7 @@ export default function StudentDashboard() {
             submissionMap={submissionMap}
             stats={stats}
             loading={isLoading}
-            onNav={setActive}
+            onNav={navigateToSection}
           />
         );
     }
@@ -97,7 +118,7 @@ export default function StudentDashboard() {
     <div className={styles.shell}>
       <Sidebar
         active={active}
-        onNav={setActive}
+        onNav={navigateToSection}
         open={sidebarOpen}
         onClose={() => setSidebar(false)}
         navItems={NAV}
@@ -106,7 +127,9 @@ export default function StudentDashboard() {
       <div className={styles.mainArea}>
         <Header
           profile={profileData}
+          role="student"
           onMenuToggle={() => setSidebar((v) => !v)}
+          onProfileClick={() => navigateToSection("profile")}
         />
         <main className={styles.content}>
           {renderContent()}
@@ -462,105 +485,6 @@ function GradesSection({ grades, loading }) {
                     transition: "width 0.6s ease",
                   }} />
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════
-   ANNOUNCEMENTS SECTION
-══════════════════════════════════════════════ */
-function AnnouncementsSection({ announcements, loading }) {
-  const TYPE_META = {
-    notice:       { label: "Notice",       icon: "📋", pill: { color: "#1a6ef5", bg: "#eff6ff" } },
-    best_student: { label: "Best Student", icon: "🌟", pill: { color: "#f59e0b", bg: "#fffbeb" } },
-    result:       { label: "Result",       icon: "📊", pill: { color: "#10b981", bg: "#f0fdf4" } },
-    event:        { label: "Event",        icon: "📅", pill: { color: "#8b5cf6", bg: "#f5f3ff" } },
-  };
-
-  return (
-    <div className={styles.section}>
-      <div className={styles.sectionHead}>
-        <div>
-          <h2 className={styles.sectionTitle}>Announcements</h2>
-          <p className={styles.sectionSub}>{announcements.length} total</p>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className={styles.skeletonList}>
-          {Array(3).fill(0).map((_, i) => (
-            <div key={i} className={styles.skeletonRow} />
-          ))}
-        </div>
-      ) : announcements.length === 0 ? (
-        <div className={styles.emptyState}>
-          <span>📢</span>
-          <p>No announcements yet.</p>
-        </div>
-      ) : (
-        <div className={styles.cardList}>
-          {announcements.map((a) => {
-            const meta = TYPE_META[a.type] ?? TYPE_META.notice;
-            return (
-              <div key={a._id} className={styles.itemCard}>
-                <div className={styles.itemCardHead}>
-                  <div style={{ display: "flex", gap: 12, alignItems: "flex-start", flex: 1 }}>
-                    <span style={{ fontSize: 22 }}>{meta.icon}</span>
-                    <div style={{ flex: 1 }}>
-                      <p className={styles.itemTitle}>{a.title}</p>
-                      <p className={styles.itemMeta}>
-                        {new Date(a.createdAt).toLocaleDateString("en-US", {
-                          month: "long", day: "numeric", year: "numeric",
-                        })}
-                      </p>
-                      <p style={{ fontSize: 13, color: "#475569", marginTop: 8, lineHeight: 1.6 }}>
-                        {a.message}
-                      </p>
-                    </div>
-                  </div>
-                  <span
-                    className={styles.pill}
-                    style={{ color: meta.pill.color, background: meta.pill.bg, flexShrink: 0 }}
-                  >
-                    {meta.label}
-                  </span>
-                </div>
-
-                {/* Best student highlight card */}
-                {a.type === "best_student" && (a.studentName || a.studentPhoto) && (
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 12,
-                    marginTop: 14, padding: "10px 14px",
-                    background: "#fffbeb", borderRadius: 10, border: "1px solid #fde68a",
-                  }}>
-                    <div style={{
-                      width: 44, height: 44, borderRadius: "50%",
-                      background: "#e2e8f0", overflow: "hidden",
-                      border: "2px solid #f59e0b", flexShrink: 0,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      {a.studentPhoto
-                        ? <img
-                            src={a.studentPhoto}
-                            alt={a.studentName}
-                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                          />
-                        : <span style={{ fontSize: 18 }}>👤</span>
-                      }
-                    </div>
-                    <div>
-                      <p style={{ fontWeight: 700, fontSize: 14, color: "#92400e", margin: "0 0 2px" }}>
-                        🏆 {a.studentName}
-                      </p>
-                      <p style={{ fontSize: 12, color: "#b45309", margin: 0 }}>Best Student</p>
-                    </div>
-                  </div>
-                )}
               </div>
             );
           })}

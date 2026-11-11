@@ -10,12 +10,13 @@ function initials(name = "") {
     .toUpperCase();
 }
 
-export default function Header({ profile, onMenuToggle, role }) {
+export default function Header({ profile, onMenuToggle, onProfileClick, role }) {
   const navigate = useNavigate();
 
   function handleLogout() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("role");
     navigate("/login");
   }
 
@@ -57,12 +58,12 @@ export default function Header({ profile, onMenuToggle, role }) {
 
       {/* RIGHT */}
       <div className={styles.right}>
-        <div className={styles.notifBtn} title="Notifications">
-          🔔
-          <span className={styles.notifDot} />
-        </div>
-
-        <div className={styles.profileChip}>
+        <button
+          type="button"
+          className={styles.profileChip}
+          onClick={onProfileClick}
+          aria-label="Open profile"
+        >
           <div className={styles.avatar}>
             {user.avatar ? (
               <img src={user.avatar} alt={user.name} />
@@ -75,7 +76,7 @@ export default function Header({ profile, onMenuToggle, role }) {
             <span className={styles.profileName}>{user.name}</span>
             <span className={styles.profileRole}>{user.roleLabel}</span>
           </div>
-        </div>
+        </button>
 
         <button
           className={styles.logoutBtn}

@@ -1,7 +1,7 @@
 .sidebar {
   width: 240px;
   height: 100vh;
-  background: #0d1b2a;
+  background: linear-gradient(180deg, #17263b 0%, #111d30 100%);
   border-right: 1px solid rgba(255,255,255,0.06);
   display: flex;
   flex-direction: column;
@@ -26,8 +26,8 @@
 }
 .brandIcon {
   width: 40px; height: 40px;
-  background: linear-gradient(135deg, #1a6ef5, #0ea5e9);
-  border-radius: 10px;
+  background: linear-gradient(135deg, #3474b8, #255b9b);
+  border-radius: 13px;
   display: flex; align-items: center; justify-content: center;
   font-size: 20px; flex-shrink: 0;
 }
@@ -37,7 +37,7 @@
   color: #f0f4ff; letter-spacing: -0.3px;
 }
 .brandSub {
-  font-size: 10px; color: #4a6080;
+  font-size: 10px; color: #91a1b7;
   text-transform: uppercase; letter-spacing: 1.2px; margin-top: 1px;
 }
 
@@ -52,7 +52,7 @@
 .navLabel {
   font-size: 10px; font-weight: 600;
   letter-spacing: 1.2px; text-transform: uppercase;
-  color: #2d4060; padding: 8px 8px 10px; margin: 0;
+  color: #8798b0; padding: 8px 8px 10px; margin: 0;
 }
 .navItem {
   display: flex;
@@ -63,7 +63,7 @@
   border-radius: 10px;
   background: transparent;
   border: none;
-  color: #5a7090;
+  color: #b0bfd1;
   font-size: 13.5px;
   font-weight: 500;
   cursor: pointer;
@@ -72,18 +72,18 @@
   position: relative;
 }
 .navItem:hover {
-  background: rgba(26, 110, 245, 0.08);
-  color: #c8d8f0;
+  background: rgba(255, 255, 255, 0.075);
+  color: #fff;
 }
 .navActive {
-  background: linear-gradient(135deg, rgba(26,110,245,0.18), rgba(14,165,233,0.1)) !important;
-  color: #60a5fa !important;
+  background: linear-gradient(135deg, rgba(73, 132, 199, 0.24), rgba(73, 132, 199, 0.1)) !important;
+  color: #d3e6ff !important;
   font-weight: 600;
 }
 .navIcon { font-size: 16px; width: 20px; flex-shrink: 0; }
 .activeDot {
   width: 6px; height: 6px;
-  background: #1a6ef5;
+  background: #82b4ed;
   border-radius: 50%;
   margin-left: auto;
 }

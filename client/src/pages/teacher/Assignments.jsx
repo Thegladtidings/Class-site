@@ -797,9 +797,16 @@ const payload = {
   /* ── Delete ── */
   async function handleDelete(id) {
     if (!window.confirm("Delete this assignment?")) return;
-    try { await deleteAssignment(id); } catch { }
-    setList((p) => p.filter((a) => a._id !== id));
-    setToast({ msg: "Assignment deleted.", type: "info" });
+    try {
+      await deleteAssignment(id);
+      setList((p) => p.filter((a) => a._id !== id));
+      setToast({ msg: "Assignment deleted.", type: "info" });
+    } catch (err) {
+      setToast({
+        msg: err.response?.data?.message || "Could not delete the assignment.",
+        type: "error",
+      });
+    }
   }
 
   const activeCount = list.filter((a) => a.isActive !== false).length;
